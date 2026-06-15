@@ -261,7 +261,10 @@
                 select.disabled = true;
 
                 try {
-                    await postJson(select.dataset.url, { sort_order: select.value });
+                    await postJson(select.dataset.url, {
+                        sort_order: select.value,
+                        term_id: select.dataset.termId || null
+                    });
                     select.dataset.previousValue = select.value;
                     window.location.reload();
                 } catch (error) {

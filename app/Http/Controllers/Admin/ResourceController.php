@@ -50,21 +50,34 @@ class ResourceController extends Controller
         }
 
         if ($termId && !empty($config['category_relation'])) {
-            $filterTermIds = $this->termIdsIncludingDescendants($termId);
-            $query->whereHas($config['category_relation'], fn (Builder $termQuery) => $termQuery->whereIn('taxonomy_terms.id', $filterTermIds));
+            $this->applyTermScope($query, $config, $termId);
+        }
+
+        $sortScope = $this->baseQuery($config, $site?->id, $locale);
+        if ($termId && !empty($config['category_relation'])) {
+            $this->applyTermScope($sortScope, $config, $termId);
         }
 
         if (!$trash && ($config['sort_column'] ?? null) === 'sort_order') {
-            $this->normalizeSortOrder($this->baseQuery($config, $site?->id, $locale));
+            if ($termId && !empty($config['category_relation'])) {
+                $this->normalizeResourceSortScope($config, $sortScope, (int) $site?->id, $termId);
+                $this->applyResourceSortOrder($query, $config, (int) $site?->id, $termId);
+            } else {
+                $this->normalizeSortOrder($this->baseQuery($config, $site?->id, $locale));
+            }
         }
 
+        $table = $query->getModel()->getTable();
         $items = $query
-            ->when(($config['sort_column'] ?? null) === 'sort_order', fn (Builder $q) => $q->orderBy('sort_order'))
-            ->latest('updated_at')
+            ->when(
+                ($config['sort_column'] ?? null) === 'sort_order' && !$termId,
+                fn (Builder $q) => $q->orderBy("{$table}.sort_order")
+            )
+            ->latest("{$table}.updated_at")
             ->paginate((int) $request->query('per_page', 12))
             ->withQueryString();
 
-        $sortOptionCount = $this->baseQuery($config, $site?->id, $locale)->count();
+        $sortOptionCount = $sortScope->count();
 
         return view('admin.resources.index', $this->viewData($context, $resource, $config, [
             'items' => $items,
@@ -281,9 +294,21 @@ class ResourceController extends Controller
         $column = $config['sort_column'] ?? 'sort_order';
         abort_unless($column === 'sort_order' && array_key_exists('sort_order', $item->getAttributes()), 404);
 
-        $data = $request->validate(['sort_order' => ['required', 'integer', 'min:1']]);
+        $data = $request->validate([
+            'sort_order' => ['required', 'integer', 'min:1'],
+            'term_id' => ['nullable', 'integer', 'exists:taxonomy_terms,id'],
+        ]);
 
         DB::transaction(function () use ($config, $site, $item, $data): void {
+            $termId = (int) ($data['term_id'] ?? 0);
+
+            if ($termId && !empty($config['category_relation'])) {
+                $scope = $this->baseQuery($config, $site?->id, $site?->default_locale ?? app()->getLocale());
+                $this->applyTermScope($scope, $config, $termId);
+                $this->reorderResourceSortScope($config, $scope, $item, (int) $site?->id, $termId, (int) $data['sort_order']);
+                return;
+            }
+
             $this->reorderItems(
                 $this->baseQuery($config, $site?->id, $site?->default_locale ?? app()->getLocale()),
                 $item,
@@ -396,9 +421,10 @@ class ResourceController extends Controller
     {
         /** @var class-string<Model> $model */
         $model = $config['model'];
+        $table = (new $model)->getTable();
 
         return $model::query()
-            ->where('site_id', $siteId)
+            ->where("{$table}.site_id", $siteId)
             ->when($config['strategy'] === 'content', function (Builder $query) use ($config, $siteId): void {
                 $typeId = ContentType::query()
                     ->where('site_id', $siteId)
@@ -751,6 +777,119 @@ class ResourceController extends Controller
         foreach (array_values($ids) as $index => $id) {
             (clone $scope)->whereKey($id)->update(['sort_order' => $index + 1]);
         }
+    }
+
+    private function applyTermScope(Builder $query, array $config, int $termId): void
+    {
+        $filterTermIds = $this->termIdsIncludingDescendants($termId);
+        $query->whereHas(
+            $config['category_relation'],
+            fn (Builder $termQuery) => $termQuery->whereIn('taxonomy_terms.id', $filterTermIds)
+        );
+    }
+
+    private function applyResourceSortOrder(Builder $query, array $config, int $siteId, int $termId): void
+    {
+        $model = $query->getModel();
+        $table = $model->getTable();
+        $keyName = $model->getKeyName();
+
+        $query
+            ->leftJoin('resource_sort_orders as resource_scope_sort', function ($join) use ($table, $keyName, $config, $siteId, $termId): void {
+                $join->on('resource_scope_sort.resource_id', '=', "{$table}.{$keyName}")
+                    ->where('resource_scope_sort.site_id', $siteId)
+                    ->where('resource_scope_sort.resource', $this->resourceSortKey($config))
+                    ->where('resource_scope_sort.taxonomy_term_id', $termId);
+            })
+            ->select("{$table}.*")
+            ->orderBy('resource_scope_sort.sort_order')
+            ->orderBy("{$table}.{$keyName}");
+    }
+
+    private function normalizeResourceSortScope(array $config, Builder $scope, int $siteId, int $termId): void
+    {
+        $model = $scope->getModel();
+        $keyName = $model->getKeyName();
+        $ids = (clone $scope)
+            ->orderBy('sort_order')
+            ->orderBy($keyName)
+            ->pluck($keyName)
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        if ($ids === []) {
+            return;
+        }
+
+        $resource = $this->resourceSortKey($config);
+        $existing = DB::table('resource_sort_orders')
+            ->where('site_id', $siteId)
+            ->where('resource', $resource)
+            ->where('taxonomy_term_id', $termId)
+            ->whereIn('resource_id', $ids)
+            ->orderBy('sort_order')
+            ->orderBy('resource_id')
+            ->pluck('resource_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $orderedIds = array_values(array_unique(array_merge(
+            array_values(array_intersect($existing, $ids)),
+            array_values(array_diff($ids, $existing))
+        )));
+
+        $now = now();
+        foreach ($orderedIds as $index => $id) {
+            DB::table('resource_sort_orders')->updateOrInsert(
+                [
+                    'site_id' => $siteId,
+                    'resource' => $resource,
+                    'taxonomy_term_id' => $termId,
+                    'resource_id' => $id,
+                ],
+                [
+                    'sort_order' => $index + 1,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
+        }
+    }
+
+    private function reorderResourceSortScope(array $config, Builder $scope, Model $movingItem, int $siteId, int $termId, int $targetPosition): void
+    {
+        $this->normalizeResourceSortScope($config, $scope, $siteId, $termId);
+
+        $ids = DB::table('resource_sort_orders')
+            ->where('site_id', $siteId)
+            ->where('resource', $this->resourceSortKey($config))
+            ->where('taxonomy_term_id', $termId)
+            ->orderBy('sort_order')
+            ->orderBy('resource_id')
+            ->pluck('resource_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        abort_unless(in_array((int) $movingItem->getKey(), $ids, true), 422);
+
+        $ids = array_values(array_filter($ids, fn (int $id) => $id !== (int) $movingItem->getKey()));
+        $targetIndex = max(0, min($targetPosition - 1, count($ids)));
+        array_splice($ids, $targetIndex, 0, [(int) $movingItem->getKey()]);
+
+        $now = now();
+        foreach ($ids as $index => $id) {
+            DB::table('resource_sort_orders')
+                ->where('site_id', $siteId)
+                ->where('resource', $this->resourceSortKey($config))
+                ->where('taxonomy_term_id', $termId)
+                ->where('resource_id', $id)
+                ->update(['sort_order' => $index + 1, 'updated_at' => $now]);
+        }
+    }
+
+    private function resourceSortKey(array $config): string
+    {
+        return (string) ($config['adminKey'] ?? $config['module'] ?? $config['content_type'] ?? $config['strategy']);
     }
 
     private function taxonomyOptions(array $config, $site, ?string $locale): array

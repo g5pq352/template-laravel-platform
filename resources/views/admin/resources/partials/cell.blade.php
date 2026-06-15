@@ -25,7 +25,7 @@
 @endphp
 
 @if($type === 'sort')
-    <select class="form-control-sm js-row-sort" style="width: 55px;" data-url="{{ route("admin.{$resource}.sort", $item) }}">
+    <select class="form-control-sm js-row-sort" style="width: 55px;" data-url="{{ route("admin.{$resource}.sort", $item) }}" data-term-id="{{ $termId ?? '' }}">
         @for($i = 1; $i <= max(1, $sortOptionCount ?? $items?->total() ?? 0); $i++)
             <option value="{{ $i }}" @selected((int) ($value ?? 1) === $i)>{{ $i }}</option>
         @endfor
