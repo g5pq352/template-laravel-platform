@@ -54,6 +54,9 @@ class ResourceController extends Controller
         }
 
         $sortScope = $this->baseQuery($config, $site?->id, $locale);
+        if ($keyword !== '') {
+            $this->applySearch($sortScope, $config, $keyword);
+        }
         if ($termId && !empty($config['category_relation'])) {
             $this->applyTermScope($sortScope, $config, $termId);
         }
@@ -802,6 +805,7 @@ class ResourceController extends Controller
                     ->where('resource_scope_sort.taxonomy_term_id', $termId);
             })
             ->select("{$table}.*")
+            ->selectRaw('resource_scope_sort.sort_order as cms_scope_sort_order')
             ->orderBy('resource_scope_sort.sort_order')
             ->orderBy("{$table}.{$keyName}");
     }
@@ -859,11 +863,16 @@ class ResourceController extends Controller
     private function reorderResourceSortScope(array $config, Builder $scope, Model $movingItem, int $siteId, int $termId, int $targetPosition): void
     {
         $this->normalizeResourceSortScope($config, $scope, $siteId, $termId);
+        $scopeIds = (clone $scope)
+            ->pluck($movingItem->getKeyName())
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
         $ids = DB::table('resource_sort_orders')
             ->where('site_id', $siteId)
             ->where('resource', $this->resourceSortKey($config))
             ->where('taxonomy_term_id', $termId)
+            ->whereIn('resource_id', $scopeIds)
             ->orderBy('sort_order')
             ->orderBy('resource_id')
             ->pluck('resource_id')
@@ -875,15 +884,23 @@ class ResourceController extends Controller
         $ids = array_values(array_filter($ids, fn (int $id) => $id !== (int) $movingItem->getKey()));
         $targetIndex = max(0, min($targetPosition - 1, count($ids)));
         array_splice($ids, $targetIndex, 0, [(int) $movingItem->getKey()]);
+        $ids = array_values(array_unique(array_map('intval', $ids)));
 
         $now = now();
         foreach ($ids as $index => $id) {
-            DB::table('resource_sort_orders')
-                ->where('site_id', $siteId)
-                ->where('resource', $this->resourceSortKey($config))
-                ->where('taxonomy_term_id', $termId)
-                ->where('resource_id', $id)
-                ->update(['sort_order' => $index + 1, 'updated_at' => $now]);
+            DB::table('resource_sort_orders')->updateOrInsert(
+                [
+                    'site_id' => $siteId,
+                    'resource' => $this->resourceSortKey($config),
+                    'taxonomy_term_id' => $termId,
+                    'resource_id' => $id,
+                ],
+                [
+                    'sort_order' => $index + 1,
+                    'updated_at' => $now,
+                    'created_at' => $now,
+                ]
+            );
         }
     }
 

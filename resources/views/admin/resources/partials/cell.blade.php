@@ -5,6 +5,7 @@
     $relation = $resourceConfig['category_relation'] ?? null;
     $categories = $relation && isset($item->{$relation}) ? $item->{$relation} : collect();
     $value = match ($key) {
+        'sort_order' => $termId ? ($item->cms_scope_sort_order ?? $item->sort_order ?? null) : ($item->sort_order ?? null),
         'title' => $translation?->title,
         'name' => $translation?->name ?? $item->name ?? null,
         'categories' => $categories->map(fn($term) => $term->pathLabel())->implode(' / '),

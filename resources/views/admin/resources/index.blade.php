@@ -8,6 +8,9 @@
         default => $resourceConfig['label'],
     };
     $filterTreeField = array_key_first($taxonomyTreesByField ?? []);
+    $visibleColumns = collect($resourceConfig['list_columns'])
+        ->reject(fn ($column) => ($trash ?? false) && (($column['type'] ?? null) === 'sort'))
+        ->values();
 @endphp
 
 @section('title', $resourceConfig['label'])
@@ -54,7 +57,7 @@
                                 <div class="d-flex align-items-lg-center flex-column flex-lg-row">
                                     @if($filterTreeField)
                                         <label class="ws-nowrap me-3 mb-0">Filter By:</label>
-                                        <div class="linked-select-wrapper cms-filter-linked-taxonomy" data-field="resource_filter" data-placeholder="全部" data-layout="inline" data-submit-mode="leaf" style="min-width: 180px;">
+                                        <div class="linked-select-wrapper cms-filter-linked-taxonomy" data-field="resource_filter" data-placeholder="全部" data-layout="inline" style="min-width: 180px;">
                                             <input type="hidden" id="resource_filter_term_id" name="term_id" value="{{ $termId }}">
                                             <div class="linked-select-levels" data-input-id="resource_filter_term_id"></div>
                                         </div>
@@ -65,7 +68,6 @@
                                                     requireLeaf: false,
                                                     layout: 'inline',
                                                     select2: false,
-                                                    submitMode: 'leaf',
                                                     submitOnChange: true
                                                 });
                                             });
@@ -112,7 +114,7 @@
                         <thead>
                             <tr>
                                 <th width="3%" class="sorting_disabled"><input type="checkbox" name="select-all" class="select-all checkbox-style-1 p-relative top-2" value=""></th>
-                                @foreach($resourceConfig['list_columns'] as $column)
+                                @foreach($visibleColumns as $column)
                                     <th class="sorting_disabled" @if(!empty($column['width'])) width="{{ $column['width'] }}" @endif>{{ $column['label'] }}</th>
                                 @endforeach
                                 <th width="30" class="sorting_disabled">{{ $trash ?? false ? '還原' : '編輯' }}</th>
@@ -123,7 +125,7 @@
                             @forelse($items as $item)
                                 <tr>
                                     <td><input type="checkbox" name="selected[]" class="checkbox-style-1 p-relative top-2" value="{{ $item->id }}"></td>
-                                    @foreach($resourceConfig['list_columns'] as $column)
+                                    @foreach($visibleColumns as $column)
                                         <td>@include('admin.resources.partials.cell', ['item' => $item, 'column' => $column, 'resourceConfig' => $resourceConfig])</td>
                                     @endforeach
 
