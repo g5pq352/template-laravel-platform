@@ -48,18 +48,14 @@
                 <div class="datatables-header-footer-wrapper dataTables_wrapper mt-2">
                     <div class="datatable-header">
                         <form method="get" class="row align-items-center mb-3">
-                            @if($parent)
-                                <input type="hidden" name="parent_id" value="{{ $parent->id }}">
-                            @endif
                             @if($trash ?? false)
                                 <input type="hidden" name="trash" value="1">
                             @endif
 
-                            <div class="col-8 col-lg-auto ms-auto ml-auto mb-3 mb-lg-0">
-                                <select name="select1" id="select1" class="form-control select-style-1 filter-by" style="display: none;">
-                                    <option value="all">all</option>
-                                </select>
-                            </div>
+                            @if($parent)
+                                <input type="hidden" name="parent_id" value="{{ $parent->id }}">
+                            @endif
+                            <div class="col-8 col-lg-auto ms-auto ml-auto mb-3 mb-lg-0"></div>
 
                             <div class="col-4 col-lg-auto ps-lg-1 mb-3 mb-lg-0">
                                 <div class="d-flex align-items-lg-center flex-column flex-lg-row">

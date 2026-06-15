@@ -66,7 +66,9 @@
             <script type="application/json" id="{{ $fieldId }}_tree">@json($fieldTaxonomyTree)</script>
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
-                    window.initCmsLinkedTaxonomy?.(@json($fieldId), @json((int) $selectedLinkedId));
+                    window.initCmsLinkedTaxonomy?.(@json($fieldId), @json((int) $selectedLinkedId), {
+                        select2: false
+                    });
                 });
             </script>
         @elseif($type === 'checkbox')

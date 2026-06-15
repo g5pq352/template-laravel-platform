@@ -69,6 +69,27 @@
             padding-top: 10px;
         }
 
+        .linked-select-levels {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .linked-select-levels.linked-select-levels-inline {
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .linked-select-levels.linked-select-levels-inline .linked-select-control {
+            width: 180px;
+            margin-bottom: 0 !important;
+        }
+
+        .linked-select-levels .select2-container {
+            max-width: 100%;
+        }
+
         .ecommerce-form .cms-form-row:last-child {
             padding-bottom: 0;
         }
@@ -168,6 +189,10 @@
 
         const requireLeaf = options.requireLeaf !== false;
         const submitOnChange = options.submitOnChange === true;
+        const submitMode = options.submitMode || wrapper.dataset.submitMode || 'always';
+        const inline = options.layout === 'inline' || wrapper.dataset.layout === 'inline';
+        const useSelect2 = options.select2 !== false && wrapper.dataset.select2 !== 'false';
+        levels.classList.toggle('linked-select-levels-inline', inline);
 
         let terms = [];
         try {
@@ -207,18 +232,22 @@
         }
 
         function enhanceSelect(select) {
-            if (!window.jQuery || !jQuery.fn.select2) {
+            if (!useSelect2 || !window.jQuery || !jQuery.fn.select2) {
                 return;
             }
 
             jQuery(select).select2({
                 theme: 'bootstrap',
-                width: '100%',
+                width: inline ? '180px' : '100%',
             });
         }
 
-        function submitOwnerForm() {
+        function submitOwnerForm(hasChildSelect) {
             if (!submitOnChange) {
+                return;
+            }
+
+            if (submitMode === 'leaf' && hasChildSelect) {
                 return;
             }
 
@@ -232,7 +261,7 @@
             }
 
             const select = document.createElement('select');
-            select.className = 'form-control form-control-md mb-2 linked-select-level';
+            select.className = 'form-control form-control-md linked-select-level linked-select-control' + (inline ? '' : ' mb-2');
             select.dataset.parentId = parentId === null ? '' : String(parentId);
 
             const placeholder = document.createElement('option');
@@ -265,14 +294,15 @@
                         input.value = requireLeaf ? '' : select.value;
                         levels.appendChild(childSelect);
                         enhanceSelect(childSelect);
+                        submitOwnerForm(true);
                     } else {
                         input.value = select.value;
+                        submitOwnerForm(false);
                     }
                 } else {
-                    input.value = '';
+                    input.value = select.dataset.parentId || '';
+                    submitOwnerForm(false);
                 }
-
-                submitOwnerForm();
             });
 
             return select;

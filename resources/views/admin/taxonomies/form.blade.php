@@ -78,10 +78,14 @@
                                                 </label>
                                                 <div class="col-lg-7 col-xl-7">
                                                     @if($name === 'parent_id')
-                                                        <select class="form-control form-control-modern" name="parent_id">
-                                                            <option value="">頂層</option>
+                                                        @php
+                                                            $selectedParentId = (int) old('parent_id', $values['parent_id'] ?? 0);
+                                                        @endphp
+                                                        <select class="form-control form-control-modern" name="parent_id" data-plugin-selectTwo>
+                                                            <option value="">全部</option>
                                                             @foreach($parentOptions as $option)
-                                                                <option value="{{ $option['id'] }}" @selected((int) old('parent_id', $values['parent_id'] ?? 0) === (int) $option['id'])>{{ $option['label'] }}</option>
+                                                                @php($parentLabelPrefix = str_repeat("\u{00a0}\u{00a0}\u{00a0}", (int) ($option['depth'] ?? 0)))
+                                                                <option value="{{ $option['id'] }}" @selected($selectedParentId === (int) $option['id'])>{{ $parentLabelPrefix }}{{ $option['label'] }}</option>
                                                             @endforeach
                                                         </select>
                                                     @elseif($type === 'select' && $name === 'is_active')

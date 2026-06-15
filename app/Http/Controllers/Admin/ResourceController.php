@@ -50,7 +50,8 @@ class ResourceController extends Controller
         }
 
         if ($termId && !empty($config['category_relation'])) {
-            $query->whereHas($config['category_relation'], fn (Builder $termQuery) => $termQuery->whereKey($termId));
+            $filterTermIds = $this->termIdsIncludingDescendants($termId);
+            $query->whereHas($config['category_relation'], fn (Builder $termQuery) => $termQuery->whereIn('taxonomy_terms.id', $filterTermIds));
         }
 
         if (!$trash && ($config['sort_column'] ?? null) === 'sort_order') {
@@ -840,6 +841,38 @@ class ResourceController extends Controller
         }
 
         return $trees;
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function termIdsIncludingDescendants(int $termId): array
+    {
+        $term = TaxonomyTerm::query()->find($termId);
+        if (!$term) {
+            return [$termId];
+        }
+
+        $terms = TaxonomyTerm::query()
+            ->where('taxonomy_id', $term->taxonomy_id)
+            ->where('locale', $term->locale)
+            ->get(['id', 'parent_id']);
+
+        $ids = [$termId];
+        $pending = [$termId];
+
+        while ($pending) {
+            $parentId = array_shift($pending);
+            $children = $terms->where('parent_id', $parentId)->pluck('id')->map(fn ($id) => (int) $id)->all();
+            foreach ($children as $childId) {
+                if (!in_array($childId, $ids, true)) {
+                    $ids[] = $childId;
+                    $pending[] = $childId;
+                }
+            }
+        }
+
+        return $ids;
     }
 
     private function selectedTermIds(?Model $item, array $config): array

@@ -106,7 +106,10 @@ class TaxonomyTermController extends Controller
             'taxonomyConfig' => $taxonomyConfig,
             'term' => null,
             'parentOptions' => $taxonomyModel->is_hierarchical
-                ? $this->treeService->flattenedOptions($taxonomyModel, $site->default_locale)->all()
+                ? $this->taxonomyParentOptions($taxonomyModel, $site->default_locale)
+                : [],
+            'parentTree' => $taxonomyModel->is_hierarchical
+                ? $this->taxonomyTree($taxonomyModel, $site->default_locale)
                 : [],
             'taxonomyOptionsByField' => $this->taxonomyOptionsByField($taxonomyConfig, $site, $site->default_locale),
             'selectedTermIdsByField' => [],
@@ -159,7 +162,10 @@ class TaxonomyTermController extends Controller
             'taxonomyConfig' => $taxonomyConfig,
             'term' => $term,
             'parentOptions' => $term->taxonomy->is_hierarchical
-                ? $this->treeService->flattenedOptions($term->taxonomy, $term->locale, $term->id)->all()
+                ? $this->taxonomyParentOptions($term->taxonomy, $term->locale, $term->id)
+                : [],
+            'parentTree' => $term->taxonomy->is_hierarchical
+                ? $this->taxonomyTree($term->taxonomy, $term->locale, $term->id)
                 : [],
             'taxonomyOptionsByField' => $this->taxonomyOptionsByField($taxonomyConfig, $term->taxonomy->site, $term->locale, $term->id),
             'selectedTermIdsByField' => $this->selectedRelatedTermIdsByField($term, $taxonomyConfig),
@@ -506,6 +512,88 @@ class TaxonomyTermController extends Controller
         }
 
         return $selected;
+    }
+
+    private function taxonomyTree(Taxonomy $taxonomy, string $locale, ?int $excludeId = null): array
+    {
+        $terms = TaxonomyTerm::query()
+            ->where('taxonomy_id', $taxonomy->id)
+            ->where('locale', $locale)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'parent_id', 'name']);
+
+        $excluded = [];
+        if ($excludeId) {
+            $excluded = $this->descendantIds($terms, $excludeId);
+            $excluded[] = $excludeId;
+        }
+
+        return $terms
+            ->reject(fn (TaxonomyTerm $term) => in_array($term->id, $excluded, true))
+            ->map(fn (TaxonomyTerm $term) => [
+                'id' => $term->id,
+                'parent_id' => $term->parent_id,
+                'label' => $term->name,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function taxonomyParentOptions(Taxonomy $taxonomy, string $locale, ?int $excludeId = null): array
+    {
+        $terms = TaxonomyTerm::query()
+            ->where('taxonomy_id', $taxonomy->id)
+            ->where('locale', $locale)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'parent_id', 'name']);
+
+        $excluded = [];
+        if ($excludeId) {
+            $excluded = $this->descendantIds($terms, $excludeId);
+            $excluded[] = $excludeId;
+        }
+
+        $terms = $terms->reject(fn (TaxonomyTerm $term) => in_array($term->id, $excluded, true));
+
+        return $this->flattenTaxonomyOptions($terms);
+    }
+
+    private function flattenTaxonomyOptions($terms, ?int $parentId = null, int $depth = 0): array
+    {
+        $options = [];
+
+        foreach ($terms->where('parent_id', $parentId) as $term) {
+            $options[] = [
+                'id' => $term->id,
+                'label' => $term->name,
+                'depth' => $depth,
+            ];
+
+            array_push($options, ...$this->flattenTaxonomyOptions($terms, $term->id, $depth + 1));
+        }
+
+        return $options;
+    }
+
+    private function descendantIds($terms, int $parentId): array
+    {
+        $ids = [];
+        $pending = [$parentId];
+
+        while ($pending) {
+            $currentId = array_shift($pending);
+            $children = $terms->where('parent_id', $currentId)->pluck('id')->map(fn ($id) => (int) $id)->all();
+            foreach ($children as $childId) {
+                if (!in_array($childId, $ids, true)) {
+                    $ids[] = $childId;
+                    $pending[] = $childId;
+                }
+            }
+        }
+
+        return $ids;
     }
 
     private function syncRelatedTerms(TaxonomyTerm $term, array $config, array $data): void
