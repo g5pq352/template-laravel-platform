@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-Hant-TW" class="@yield('html_class', 'sidebar-left-big-icons')">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>@yield('title', '後台管理') - Template Platform</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700,800|Shadows+Into+Light" rel="stylesheet" type="text/css">
+
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/bootstrap/css/bootstrap.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/animate/animate.compat.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/font-awesome/css/all.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/boxicons/css/boxicons.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/magnific-popup/magnific-popup.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/bootstrap-datepicker/css/bootstrap-datepicker3.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/jquery-ui/jquery-ui.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/jquery-ui/jquery-ui.theme.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/bootstrap-multiselect/css/bootstrap-multiselect.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/morris/morris.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/datatables/media/css/dataTables.bootstrap5.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/select2/css/select2.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/select2-bootstrap-theme/select2-bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/dropzone/basic.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/dropzone/dropzone.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/bootstrap-markdown/css/bootstrap-markdown.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/pnotify/pnotify.custom.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/elusive-icons/css/elusive-icons.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/cms-jquery/cropper/cropper.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/cms-crop/crop.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/css/theme.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/css/skins/default.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/css/custom.css') }}">
+    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/css/layouts/modern.css') }}">
+    <script src="{{ asset('admin-assets/template-style/vendor/modernizr/modernizr.js') }}"></script>
+    <link rel="stylesheet" href="{{ asset('admin-assets/cms-jquery/chosen_v1.8.5/chosen.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="{{ asset('admin-assets/cms-js/sweetalert2@11.js') }}"></script>
+
+    <style>
+        html { scrollbar-gutter: stable; }
+        .chosen-container { position: relative; top: -3px; }
+
+        .cms-page-actions { padding: 0 0 16px; }
+
+        .table .actions {
+            display: inline-flex;
+            gap: 6px;
+            justify-content: flex-end;
+            white-space: nowrap;
+        }
+
+        .cms-table-empty {
+            background: #eee;
+            height: 124px;
+        }
+
+        .cms-count { color: #4f5b66; font-size: 13px; }
+
+        .badge-status {
+            border-radius: 3px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0;
+            padding: 8px 12px;
+        }
+
+        .login-page {
+            align-items: center;
+            background: #ecedf0;
+            display: flex;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .login-card {
+            margin: 0 auto;
+            max-width: 420px;
+            width: 100%;
+        }
+
+        @media (max-width: 991px) {
+            .cms-count { text-align: left; }
+        }
+    </style>
+    @stack('styles')
+</head>
+<body>
+@yield('body')
+
+<script src="{{ asset('admin-assets/template-style/vendor/jquery/jquery.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/jquery-browser-mobile/jquery.browser.mobile.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/popper/umd/popper.min.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/bootstrap-datepicker/js/bootstrap-datepicker.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/common/common.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/nanoscroller/nanoscroller.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/magnific-popup/jquery.magnific-popup.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/jquery-placeholder/jquery.placeholder.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/jquery-ui/jquery-ui.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/jqueryui-touch-punch/jquery.ui.touch-punch.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/jquery-appear/jquery.appear.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/bootstrap-multiselect/js/bootstrap-multiselect.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/datatables/media/js/jquery.dataTables.min.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/datatables/media/js/dataTables.bootstrap5.min.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/vendor/select2/js/select2.js') }}"></script>
+<script src="{{ asset('admin-assets/ckeditor/ckeditor.js') }}"></script>
+<script src="{{ asset('admin-assets/cms-jquery/cropper/cropper.min.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/js/theme.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/js/custom.js') }}"></script>
+<script src="{{ asset('admin-assets/template-style/js/theme.init.js') }}"></script>
+<script>
+    window.CMS_IMAGE_DEMO_URL = "{{ asset('admin-assets/cms-crop/demo.jpg') }}";
+</script>
+<script src="{{ asset('admin-assets/cms-js/laravel-image-upload-manager.js') }}"></script>
+<script>
+    window.cmsAlert = function (message, icon = 'info', options = {}) {
+        return Swal.fire({
+            icon,
+            title: options.title || '提示',
+            text: message,
+            confirmButtonText: options.confirmButtonText || '確定',
+            confirmButtonColor: options.confirmButtonColor || '#0088cc',
+        });
+    };
+
+    window.cmsConfirm = async function (message, options = {}) {
+        const result = await Swal.fire({
+            icon: options.icon || 'warning',
+            title: options.title || '確認操作',
+            text: message,
+            showCancelButton: true,
+            confirmButtonText: options.confirmButtonText || '確定',
+            cancelButtonText: options.cancelButtonText || '取消',
+            confirmButtonColor: options.confirmButtonColor || '#d33',
+            cancelButtonColor: options.cancelButtonColor || '#6c757d',
+            reverseButtons: true,
+        });
+
+        return result.isConfirmed;
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-confirm]').forEach(function (item) {
+            item.addEventListener('submit', async function (event) {
+                if (item.dataset.confirmed === '1') {
+                    return;
+                }
+
+                event.preventDefault();
+
+                if (await window.cmsConfirm(item.getAttribute('data-confirm'))) {
+                    item.dataset.confirmed = '1';
+                    item.submit();
+                }
+            });
+        });
+
+        if (window.CKEDITOR && window.jQuery) {
+            jQuery('textarea.tiny').each(function (index, el) {
+                if (!el.id) {
+                    el.id = 'ckeditor_' + index;
+                }
+
+                if (!CKEDITOR.instances[el.id]) {
+                    CKEDITOR.replace(el.id, {
+                        height: '350px',
+                        ignoreReadOnlyWarning: true,
+                        pasteFromWordRemoveFontStyles: true,
+                        pasteFromWordRemoveStyles: true,
+                        forcePasteAsPlainText: false,
+                        pasteFilter: 'p; h1; h2; h3; h4; h5; h6; ul; ol; li; strong; em; u; a[!href]; img[!src,alt,width,height]; br',
+                        removeFormatAttributes: 'class,style,lang,width,height,align,hspace,valign',
+                        removeFormatTags: 'font,span'
+                    });
+                }
+            });
+        }
+    });
+</script>
+@stack('scripts')
+</body>
+</html>
