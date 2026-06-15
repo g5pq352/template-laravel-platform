@@ -23,7 +23,7 @@
         <div class="row align-items-center mb-3">
             <div class="col-12 col-lg-auto mb-3 mb-lg-0">
                 @if($resourceConfig['show_add_button'] ?? true)
-                    <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route("admin.{$resource}.create") }}">
+                    <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route("admin.{$resource}.create", array_filter(['term_id' => $termId])) }}">
                         <i class="fas fa-plus-circle"></i> 新增
                     </a>
                 @endif

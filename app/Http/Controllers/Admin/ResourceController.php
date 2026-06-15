@@ -76,20 +76,29 @@ class ResourceController extends Controller
         ]));
     }
 
-    public function create(AdminContext $context, string $resource): View
+    public function create(AdminContext $context, Request $request, string $resource): View
     {
         $config = $this->config($resource);
         abort_if(($config['show_add_button'] ?? true) === false, 404);
         $site = $context->site();
+        $locale = $site?->default_locale ?? app()->getLocale();
+        $taxonomyOptions = $this->taxonomyOptions($config, $site, $locale);
+        $taxonomyOptionsByField = $this->taxonomyOptionsByField($config, $site, $locale);
+        $selectedTermIdsByField = $this->defaultSelectedTermIdsByField(
+            $config,
+            $taxonomyOptionsByField,
+            $request->integer('term_id') ?: null
+        );
+        $selectedTermIds = collect($selectedTermIdsByField)->flatten()->filter()->values()->all();
 
         return view('admin.resources.form', $this->viewData($context, $resource, $config, [
             'item' => null,
-            'values' => $this->emptyValues($config, $site?->default_locale ?? app()->getLocale()),
+            'values' => $this->emptyValues($config, $locale),
             'mediaByRole' => [],
-            'taxonomyOptions' => $this->taxonomyOptions($config, $site, $site?->default_locale),
-            'taxonomyOptionsByField' => $this->taxonomyOptionsByField($config, $site, $site?->default_locale),
-            'selectedTermIds' => [],
-            'selectedTermIdsByField' => [],
+            'taxonomyOptions' => $taxonomyOptions,
+            'taxonomyOptionsByField' => $taxonomyOptionsByField,
+            'selectedTermIds' => $selectedTermIds,
+            'selectedTermIdsByField' => $selectedTermIdsByField,
         ]));
     }
 
@@ -814,6 +823,39 @@ class ResourceController extends Controller
                 ->pluck('id')
                 ->all();
         }
+
+        return $selected;
+    }
+
+    private function defaultSelectedTermIdsByField(array $config, array $taxonomyOptionsByField, ?int $requestedTermId): array
+    {
+        $selected = [];
+        $fields = $this->taxonomyFields($config);
+
+        foreach ($fields as $field) {
+            $selected[$field['name']] = [];
+        }
+
+        $primaryField = $fields[0] ?? null;
+        if (!$primaryField) {
+            return $selected;
+        }
+
+        $fieldName = $primaryField['name'];
+        $options = collect($taxonomyOptionsByField[$fieldName] ?? [])
+            ->map(fn (array $option) => (int) $option['id'])
+            ->filter()
+            ->values();
+
+        if ($options->isEmpty()) {
+            return $selected;
+        }
+
+        $termId = $requestedTermId && $options->contains($requestedTermId)
+            ? $requestedTermId
+            : (int) $options->first();
+
+        $selected[$fieldName] = [$termId];
 
         return $selected;
     }
