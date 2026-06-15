@@ -129,6 +129,13 @@
                                     </a>
                                 </li>
 
+                                <li @class(['nav-active' => $isMediaLibrary])>
+                                    <a class="nav-link" href="{{ route('admin.media-library.index') }}">
+                                        <i class="bx bx-images" aria-hidden="true"></i>
+                                        <span>圖片庫</span>
+                                    </a>
+                                </li>
+
                                 <li @class(['nav-parent', 'nav-expanded nav-active' => $isHome])>
                                     <a class="nav-link" href="#">
                                         <i class="bx bx-file" aria-hidden="true"></i>
@@ -196,13 +203,6 @@
                                     <a class="nav-link" href="{{ route('admin.info.edit', 'keywordsInfo') }}">
                                         <i class="bx bx-cog" aria-hidden="true"></i>
                                         <span>全站設定</span>
-                                    </a>
-                                </li>
-
-                                <li @class(['nav-active' => $isMediaLibrary])>
-                                    <a class="nav-link" href="{{ route('admin.media-library.index') }}">
-                                        <i class="bx bx-images" aria-hidden="true"></i>
-                                        <span>圖片庫</span>
                                     </a>
                                 </li>
 

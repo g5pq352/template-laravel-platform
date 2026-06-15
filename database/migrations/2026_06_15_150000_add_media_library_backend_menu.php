@@ -38,7 +38,7 @@ return new class extends Migration
                 'icon' => 'bx bx-images',
                 'target' => '_self',
                 'is_active' => true,
-                'sort_order' => 80,
+                'sort_order' => 2,
                 'settings' => null,
                 'created_at' => $now,
                 'updated_at' => $now,
