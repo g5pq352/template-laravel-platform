@@ -87,10 +87,6 @@
             margin-bottom: 0 !important;
         }
 
-        .linked-select-levels.linked-select-levels-inline .linked-select-control:first-child {
-            min-width: 180px;
-        }
-
         .linked-select-levels .select2-container {
             max-width: 100%;
         }
