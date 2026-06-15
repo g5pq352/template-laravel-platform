@@ -1,4 +1,4 @@
-﻿@php
+@php
     $name = $field['name'];
     $type = $field['type'];
     $readonly = ($field['readonly'] ?? false) ? 'readonly' : '';
