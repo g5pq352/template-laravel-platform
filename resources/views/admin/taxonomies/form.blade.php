@@ -66,6 +66,7 @@
                                                 $hideParent = $name === 'parent_id' && !($taxonomyModel->is_hierarchical ?? true);
                                                 $fieldTaxonomyOptions = $taxonomyOptionsByField[$name] ?? [];
                                                 $fieldSelectedTermIds = old($name, $selectedTermIdsByField[$name] ?? []);
+                                                $taxonomyInputName = $name . (!empty($field['multiple']) ? '[]' : '');
                                             @endphp
 
                                             @continue($hideParent)
@@ -90,7 +91,7 @@
                                                             @endforeach
                                                         </select>
                                                     @elseif(in_array($type, ['taxonomy', 'linked_taxonomy'], true))
-                                                        <select class="form-control form-control-md" name="{{ $name }}[]" data-plugin-selectTwo {{ !empty($field['multiple']) ? 'multiple' : '' }}>
+                                                        <select class="form-control form-control-md" name="{{ $taxonomyInputName }}" data-plugin-selectTwo {{ !empty($field['multiple']) ? 'multiple' : '' }}>
                                                             @if(empty($field['multiple']))
                                                                 <option value="">-- 請選擇 --</option>
                                                             @endif

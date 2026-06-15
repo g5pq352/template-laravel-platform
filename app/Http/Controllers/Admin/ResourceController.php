@@ -430,8 +430,13 @@ class ResourceController extends Controller
         ];
 
         foreach ($this->taxonomyFields($config) as $field) {
-            $rules[$field['name']] = ['nullable', 'array'];
-            $rules["{$field['name']}.*"] = ['integer', 'exists:taxonomy_terms,id'];
+            if (!empty($field['multiple'])) {
+                $rules[$field['name']] = ['nullable', 'array'];
+                $rules["{$field['name']}.*"] = ['integer', 'exists:taxonomy_terms,id'];
+                continue;
+            }
+
+            $rules[$field['name']] = ['nullable', 'integer', 'exists:taxonomy_terms,id'];
         }
 
         foreach ($config['form_sections'] as $section) {

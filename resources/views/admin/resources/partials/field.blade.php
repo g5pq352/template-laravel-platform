@@ -8,6 +8,7 @@
     $mediaByRole = $mediaByRole ?? [];
     $fieldTaxonomyOptions = $taxonomyOptionsByField[$name] ?? $taxonomyOptions ?? [];
     $fieldSelectedTermIds = old($name, $selectedTermIdsByField[$name] ?? ($name === 'term_ids' ? ($selectedTermIds ?? []) : []));
+    $taxonomyInputName = $name . (!empty($field['multiple']) ? '[]' : '');
     $fieldLabel = $field['label'];
     $wideTypes = ['datetime', 'updatetime', 'image_upload', 'file_upload', 'dynamic_fields'];
     $colClass = $type === 'dynamic_fields'
@@ -40,14 +41,17 @@
                 <input type="hidden" name="{{ $name }}" value="{{ $value }}">
             @endif
         @elseif($type === 'taxonomy')
-            <select id="{{ $fieldId }}" class="form-control" name="{{ $name }}[]" data-plugin-selectTwo {{ !empty($field['multiple']) ? 'multiple' : '' }} {{ $disabled }}>
+            <select id="{{ $fieldId }}" class="form-control" name="{{ $taxonomyInputName }}" data-plugin-selectTwo {{ !empty($field['multiple']) ? 'multiple' : '' }} {{ $disabled }}>
+                @if(empty($field['multiple']))
+                    <option value="">-- 請選擇 --</option>
+                @endif
                 @foreach($fieldTaxonomyOptions as $option)
                     <option value="{{ $option['id'] }}" @selected(in_array($option['id'], array_map('intval', (array) $fieldSelectedTermIds), true))>{{ $option['label'] }}</option>
                 @endforeach
             </select>
         @elseif($type === 'linked_taxonomy')
             <div class="linked-select-wrapper" data-field="{{ $name }}" data-category="{{ $field['category'] ?? '' }}">
-                <select id="{{ $fieldId }}" class="form-control form-control-md mb-2 linked-select-level" name="{{ $name }}[]" data-plugin-selectTwo {{ $disabled }}>
+                <select id="{{ $fieldId }}" class="form-control form-control-md mb-2 linked-select-level" name="{{ $taxonomyInputName }}" data-plugin-selectTwo {{ !empty($field['multiple']) ? 'multiple' : '' }} {{ $disabled }}>
                     <option value="">-- 請選擇 --</option>
                     @foreach($fieldTaxonomyOptions as $option)
                         <option value="{{ $option['id'] }}" @selected(in_array($option['id'], array_map('intval', (array) $fieldSelectedTermIds), true))>{{ $option['label'] }}</option>
