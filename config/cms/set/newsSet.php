@@ -49,7 +49,7 @@ return [
                     'field' => 'd_tag',
                     'label' => '標籤',
                     'category' => 'newsTag',
-                    'multiple' => true,
+                    'multiple' => false,
                 ],
                 [
                     'type' => 'text',

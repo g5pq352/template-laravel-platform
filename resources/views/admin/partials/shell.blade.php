@@ -4,22 +4,8 @@
     $pageTitle = trim($__env->yieldContent('page_title', $__env->yieldContent('title', '後台管理')));
     $taxonomy = request()->route('taxonomy');
 
-    $homeContentTypeId = null;
-    if (isset($site) && class_exists(\App\Models\ContentType::class) && \Illuminate\Support\Facades\Schema::hasTable('content_types')) {
-        $homeContentTypeId = \App\Models\ContentType::query()
-            ->where('site_id', $site->id)
-            ->whereIn('code', ['home', 'page'])
-            ->orderByRaw("case when code = 'home' then 0 else 1 end")
-            ->value('id');
-    }
-
-    $homeHref = $homeContentTypeId
-        ? route('admin.contents.index', ['content_type_id' => $homeContentTypeId])
-        : route('admin.contents.index');
-
-    $isHomeContent = request()->routeIs('admin.contents.*')
-        && (!$homeContentTypeId || (string) request()->query('content_type_id') === (string) $homeContentTypeId);
-    $isHome = $isHomeContent || (request()->routeIs('admin.info.*') && request()->route('module') === 'popInfo');
+    $isHomeDisplay = request()->routeIs('admin.home-display.*');
+    $isHome = $isHomeDisplay || (request()->routeIs('admin.info.*') && request()->route('module') === 'popInfo');
     $isDashboard = request()->routeIs('admin.dashboard');
     $isNews = request()->routeIs('admin.news.*') || (request()->routeIs('admin.taxonomies.*') && in_array($taxonomy, ['newsCate', 'newsTag'], true));
     $isProducts = request()->routeIs('admin.products.*') || (request()->routeIs('admin.taxonomies.*') && in_array($taxonomy, ['productCate', 'productTag'], true));
@@ -132,7 +118,6 @@
                                 @foreach($backendMenus as $backendMenu)
                                     @include('admin.partials.menu-item', [
                                         'menu' => $backendMenu,
-                                        'homeContentTypeId' => $homeContentTypeId,
                                     ])
                                 @endforeach
                             @else
@@ -149,8 +134,8 @@
                                         <span>首頁</span>
                                     </a>
                                     <ul class="nav nav-children">
-                                        <li @class(['nav-active' => $isHomeContent])>
-                                            <a class="nav-link" href="{{ $homeHref }}">首頁內容</a>
+                                        <li @class(['nav-active' => $isHomeDisplay])>
+                                            <a class="nav-link" href="{{ route('admin.home-display.index') }}">首頁顯示</a>
                                         </li>
                                         <li @class(['nav-active' => request()->routeIs('admin.info.*') && request()->route('module') === 'popInfo'])>
                                             <a class="nav-link" href="{{ route('admin.info.edit', 'popInfo') }}">燈箱設定</a>

@@ -71,7 +71,7 @@
 
                                             @continue($hideParent)
 
-                                            <div class="form-group row pb-3 {{ in_array($type, ['textarea'], true) ? '' : 'align-items-center' }}">
+                                            <div class="form-group row cms-form-row {{ in_array($type, ['textarea'], true) ? '' : 'align-items-center' }}">
                                                 <label class="col-lg-5 col-xl-2 control-label text-lg-end {{ $type === 'textarea' ? 'pt-2 mt-1' : 'mb-0' }}">
                                                     {{ $field['label'] }}
                                                     @if($required)<span class="required">*</span>@endif

@@ -125,7 +125,7 @@ class DatabaseSeeder extends Seeder
 
                 $childMenus = [
                     'home' => [
-                        ['title' => '首頁內容', 'module_key' => 'home.content', 'route_name' => 'admin.contents.index', 'settings' => ['query_params' => ['content_type_id' => $homeTypeId]]],
+                        ['title' => '首頁顯示', 'module_key' => 'home.content', 'route_name' => 'admin.home-display.index'],
                         ['title' => '燈箱設定', 'module_key' => 'popInfo', 'route_name' => 'admin.info.edit', 'settings' => ['route_params' => ['module' => 'popInfo']]],
                     ],
                     'news' => [
@@ -237,7 +237,7 @@ class DatabaseSeeder extends Seeder
 
                 $translationData = [
                     'title' => '首頁',
-                    'summary' => 'Laravel 後台 CMS 首頁內容。',
+                    'summary' => 'Laravel 後台 CMS 首頁顯示。',
                     'body' => '這筆內容由 Laravel seed 建立，可在後台內容管理中維護。',
                     'seo_title' => '首頁',
                     'seo_description' => 'Laravel 後台 CMS 首頁。',

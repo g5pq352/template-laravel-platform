@@ -44,7 +44,7 @@
                         <div class="col-lg-3-5 col-xl-4-5">
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="tab-basic">
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">選單位置</label>
                                         <div class="col-lg-7 col-xl-7">
                                             <select class="form-control form-control-modern" name="location">
@@ -55,7 +55,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">上層選單</label>
                                         <div class="col-lg-7 col-xl-7">
                                             <select class="form-control form-control-modern" name="parent_id">
@@ -67,14 +67,14 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">標題 <span class="required">*</span></label>
                                         <div class="col-lg-7 col-xl-7">
                                             <input class="form-control form-control-modern" name="title" value="{{ old('title', $values['title'] ?? null) }}" required>
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">類型</label>
                                         <div class="col-lg-7 col-xl-7">
                                             <select class="form-control form-control-modern" name="type">
@@ -85,14 +85,14 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">URL</label>
                                         <div class="col-lg-7 col-xl-7">
                                             <input class="form-control form-control-modern" name="url" value="{{ old('url', $values['url'] ?? null) }}" placeholder="/news 或 https://example.com">
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">Route / 模組代碼</label>
                                         <div class="col-lg-7 col-xl-7">
                                             <div class="row">
@@ -106,14 +106,14 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">Icon</label>
                                         <div class="col-lg-7 col-xl-7">
                                             <input class="form-control form-control-modern" name="icon" value="{{ old('icon', $values['icon'] ?? null) }}" placeholder="bx bx-file 或 fa-solid fa-bars">
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">開啟方式</label>
                                         <div class="col-lg-7 col-xl-7">
                                             <select class="form-control form-control-modern" name="target">
@@ -123,7 +123,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">網頁顯示</label>
                                         <div class="col-lg-7 col-xl-7">
                                             <select class="form-control form-control-modern" name="is_active">

@@ -52,7 +52,7 @@
                         <div class="col-lg-3-5 col-xl-4-5">
                             <div class="tab-content" id="content-tabs-panel">
                                 <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">內容類型 <span class="required">*</span></label>
                                         <div class="col-sm-7">
                                             <select class="form-control" name="content_type_id" required>
@@ -65,21 +65,21 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">語系 <span class="required">*</span></label>
                                         <div class="col-sm-4">
                                             <input class="form-control" name="locale" value="{{ old('locale', $translation?->locale ?? $site->default_locale) }}" required>
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">標題 <span class="required">*</span></label>
                                         <div class="col-sm-7">
                                             <input class="form-control" name="title" value="{{ old('title', $translation?->title) }}" required>
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">Slug</label>
                                         <div class="col-sm-7">
                                             <input class="form-control" name="slug" value="{{ old('slug', $translation?->slug) }}">
@@ -87,7 +87,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">狀態 <span class="required">*</span></label>
                                         <div class="col-sm-4">
                                             <select class="form-control" name="status" required>
@@ -98,7 +98,7 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">排序</label>
                                         <div class="col-sm-4">
                                             <input class="form-control" type="number" name="sort_order" value="{{ old('sort_order', $content?->sort_order ?? 0) }}">
@@ -111,14 +111,14 @@
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">摘要</label>
                                         <div class="col-sm-8">
                                             <textarea class="form-control" name="summary" rows="4">{{ old('summary', $translation?->summary) }}</textarea>
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">內容</label>
                                         <div class="col-sm-8">
                                             <textarea class="form-control tiny" name="body" rows="12">{{ old('body', $translation?->body) }}</textarea>
@@ -127,14 +127,14 @@
                                 </div>
 
                                 <div class="tab-pane fade" id="seo" role="tabpanel" aria-labelledby="seo-tab">
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">SEO 標題</label>
                                         <div class="col-sm-7">
                                             <input class="form-control" name="seo_title" value="{{ old('seo_title', $translation?->seo_title) }}">
                                         </div>
                                     </div>
 
-                                    <div class="form-group row pb-3">
+                                    <div class="form-group row cms-form-row">
                                         <label class="col-sm-3 control-label text-sm-end pt-2">SEO 描述</label>
                                         <div class="col-sm-8">
                                             <textarea class="form-control" name="seo_description" rows="4">{{ old('seo_description', $translation?->seo_description) }}</textarea>

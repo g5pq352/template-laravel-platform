@@ -3,13 +3,14 @@
     $settings = is_array($menu->settings) ? $menu->settings : [];
     $routeParams = $settings['route_params'] ?? [];
     $queryParams = $settings['query_params'] ?? [];
-    $homeContentTypeId = $homeContentTypeId ?? null;
     $href = '#';
+    $homeDisplayKeys = ['home.content', 'home.display'];
+    $menuTitle = in_array($menu->module_key, $homeDisplayKeys, true) ? '首頁顯示' : $menu->title;
 
-    if ($menu->module_key === 'home') {
-        $href = $homeContentTypeId
-            ? route('admin.contents.index', ['content_type_id' => $homeContentTypeId])
-            : route('admin.contents.index');
+    if (in_array($menu->module_key, $homeDisplayKeys, true)) {
+        $href = route('admin.home-display.index');
+    } elseif ($menu->module_key === 'home') {
+        $href = '#';
     } elseif ($menu->module_key === 'settings') {
         $href = route('admin.info.edit', 'keywordsInfo');
     } elseif ($menu->route_name && \Illuminate\Support\Facades\Route::has($menu->route_name)) {
@@ -18,10 +19,14 @@
         $href = $menu->url;
     }
 
-    $matchesMenu = function ($item) use (&$matchesMenu, $homeContentTypeId) {
+    $matchesMenu = function ($item) use (&$matchesMenu, $homeDisplayKeys) {
         if ($item->module_key === 'home') {
-            return request()->routeIs('admin.contents.*')
-                && (!$homeContentTypeId || (string) request()->query('content_type_id') === (string) $homeContentTypeId);
+            return request()->routeIs('admin.home-display.*')
+                || (request()->routeIs('admin.info.*') && request()->route('module') === 'popInfo');
+        }
+
+        if (in_array($item->module_key, $homeDisplayKeys, true)) {
+            return request()->routeIs('admin.home-display.*');
         }
 
         if ($item->module_key === 'settings') {
@@ -85,7 +90,7 @@
         @if($menu->icon)
             <i class="{{ $menu->icon }}" aria-hidden="true"></i>
         @endif
-        <span>{{ $menu->title }}</span>
+        <span>{{ $menuTitle }}</span>
     </a>
 
     @if($children->isNotEmpty())
@@ -93,7 +98,6 @@
             @foreach($children as $child)
                 @include('admin.partials.menu-item', [
                     'menu' => $child,
-                    'homeContentTypeId' => $homeContentTypeId,
                 ])
             @endforeach
         </ul>

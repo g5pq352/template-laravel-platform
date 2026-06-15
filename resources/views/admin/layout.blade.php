@@ -59,6 +59,20 @@
 
         .cms-count { color: #4f5b66; font-size: 13px; }
 
+        .ecommerce-form .cms-form-row {
+            margin-bottom: 0;
+            padding-bottom: 10px;
+        }
+
+        .ecommerce-form .cms-form-row + .cms-form-row {
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        .ecommerce-form .cms-form-row:last-child {
+            padding-bottom: 0;
+        }
+
         .badge-status {
             border-radius: 3px;
             font-size: 13px;

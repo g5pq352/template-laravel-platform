@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\CmsMenuController;
 use App\Http\Controllers\Admin\ContentController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\HomeDisplayController;
 use App\Http\Controllers\Admin\InfoModuleController;
 use App\Http\Controllers\Admin\ResourceController;
 use App\Http\Controllers\Admin\SiteController;
@@ -26,6 +27,9 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
         Route::post('/sites/switch', [SiteController::class, 'switch'])->name('sites.switch');
         Route::get('/settings', fn () => redirect()->route('admin.info.edit', 'keywordsInfo'))->name('settings.index');
+        Route::get('/home-display', [HomeDisplayController::class, 'index'])->name('home-display.index');
+        Route::post('/home-display/{content}/toggle', [HomeDisplayController::class, 'toggle'])->name('home-display.toggle');
+        Route::post('/home-display/{content}/sort', [HomeDisplayController::class, 'sort'])->name('home-display.sort');
         Route::get('/info/{module}', [InfoModuleController::class, 'edit'])->name('info.edit');
         Route::put('/info/{module}', [InfoModuleController::class, 'update'])->name('info.update');
 

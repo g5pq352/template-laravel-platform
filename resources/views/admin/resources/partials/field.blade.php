@@ -20,7 +20,7 @@
 @endphp
 
 @if(!($field['hide_on_create'] ?? false) || $item)
-<div class="form-group row {{ in_array($type, ['textarea', 'editor', 'image_upload', 'file_upload', 'dynamic_fields'], true) ? '' : 'align-items-center' }} pb-3">
+<div class="form-group row cms-form-row {{ in_array($type, ['textarea', 'editor', 'image_upload', 'file_upload', 'dynamic_fields'], true) ? '' : 'align-items-center' }}">
     <label class="{{ $labelClass }}">
         {{ $fieldLabel }}
         @if($required)<span class="required">*</span>@endif
