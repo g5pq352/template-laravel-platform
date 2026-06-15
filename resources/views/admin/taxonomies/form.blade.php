@@ -64,6 +64,8 @@
                                                 $required = !empty($field['required']);
                                                 $note = $field['note'] ?? null;
                                                 $hideParent = $name === 'parent_id' && !($taxonomyModel->is_hierarchical ?? true);
+                                                $fieldTaxonomyOptions = $taxonomyOptionsByField[$name] ?? [];
+                                                $fieldSelectedTermIds = old($name, $selectedTermIdsByField[$name] ?? []);
                                             @endphp
 
                                             @continue($hideParent)
@@ -85,6 +87,15 @@
                                                         <select class="form-control form-control-md" name="is_active" required>
                                                             @foreach($statusOptions as $optionValue => $optionLabel)
                                                                 <option value="{{ $optionValue }}" @selected((string) old('is_active', (int) ($values['is_active'] ?? true)) === (string) $optionValue)>{{ $optionLabel }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    @elseif(in_array($type, ['taxonomy', 'linked_taxonomy'], true))
+                                                        <select class="form-control form-control-md" name="{{ $name }}[]" data-plugin-selectTwo {{ !empty($field['multiple']) ? 'multiple' : '' }}>
+                                                            @if(empty($field['multiple']))
+                                                                <option value="">-- 請選擇 --</option>
+                                                            @endif
+                                                            @foreach($fieldTaxonomyOptions as $option)
+                                                                <option value="{{ $option['id'] }}" @selected(in_array((int) $option['id'], array_map('intval', (array) $fieldSelectedTermIds), true))>{{ $option['label'] }}</option>
                                                             @endforeach
                                                         </select>
                                                     @elseif($type === 'textarea')

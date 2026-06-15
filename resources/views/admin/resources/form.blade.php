@@ -65,7 +65,9 @@
                                                 'statusOptions' => $resourceConfig['status_options'] ?? [],
                                                 'mediaByRole' => $mediaByRole ?? [],
                                                 'taxonomyOptions' => $taxonomyOptions,
+                                                'taxonomyOptionsByField' => $taxonomyOptionsByField ?? [],
                                                 'selectedTermIds' => old('term_ids', $selectedTermIds),
+                                                'selectedTermIdsByField' => $selectedTermIdsByField ?? [],
                                             ])
                                         @endforeach
                                     </div>

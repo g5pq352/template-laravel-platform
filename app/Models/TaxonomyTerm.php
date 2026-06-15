@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -44,6 +45,14 @@ class TaxonomyTerm extends Model
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function relatedTerms(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'taxonomy_term_relations', 'source_term_id', 'related_term_id')
+            ->withPivot(['field', 'sort_order'])
+            ->withTimestamps()
+            ->orderBy('taxonomy_term_relations.sort_order');
     }
 
     public function pathLabel(): string

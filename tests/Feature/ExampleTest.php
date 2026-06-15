@@ -241,6 +241,17 @@ class ExampleTest extends TestCase
             });
         }
 
+        if (!Schema::hasTable('taxonomy_term_relations')) {
+            Schema::create('taxonomy_term_relations', function (Blueprint $table): void {
+                $table->id();
+                $table->unsignedBigInteger('source_term_id');
+                $table->unsignedBigInteger('related_term_id');
+                $table->string('field', 80)->index();
+                $table->unsignedInteger('sort_order')->default(0);
+                $table->timestamps();
+            });
+        }
+
         if (!Schema::hasTable('products')) {
             Schema::create('products', function (Blueprint $table): void {
                 $table->id();

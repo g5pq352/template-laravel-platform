@@ -87,7 +87,9 @@ class ResourceController extends Controller
             'values' => $this->emptyValues($config, $site?->default_locale ?? app()->getLocale()),
             'mediaByRole' => [],
             'taxonomyOptions' => $this->taxonomyOptions($config, $site, $site?->default_locale),
+            'taxonomyOptionsByField' => $this->taxonomyOptionsByField($config, $site, $site?->default_locale),
             'selectedTermIds' => [],
+            'selectedTermIdsByField' => [],
         ]));
     }
 
@@ -107,7 +109,7 @@ class ResourceController extends Controller
                 default => throw new \InvalidArgumentException('不支援的資源策略。'),
             };
 
-            $this->syncTerms($item, $config, $data['term_ids'] ?? []);
+            $this->syncTerms($item, $config, $data);
             $this->syncMediaUploads($request, $item, $config, $site->id);
             $this->syncDynamicFields($request, $item, $config, $site->id, $data['locale']);
         });
@@ -131,7 +133,9 @@ class ResourceController extends Controller
             'values' => $this->valuesForItem($item, $config, $locale),
             'mediaByRole' => $this->mediaByRoleForItem($item, $config),
             'taxonomyOptions' => $this->taxonomyOptions($config, $site, $locale),
+            'taxonomyOptionsByField' => $this->taxonomyOptionsByField($config, $site, $locale),
             'selectedTermIds' => $this->selectedTermIds($item, $config),
+            'selectedTermIdsByField' => $this->selectedTermIdsByField($item, $config),
         ]));
     }
 
@@ -151,7 +155,7 @@ class ResourceController extends Controller
                 default => throw new \InvalidArgumentException('不支援的資源策略。'),
             };
 
-            $this->syncTerms($item, $config, $data['term_ids'] ?? []);
+            $this->syncTerms($item, $config, $data);
             $this->syncMediaUploads($request, $item, $config, (int) $site?->id);
             $this->syncDynamicFields($request, $item, $config, (int) $site?->id, $data['locale']);
         });
@@ -423,16 +427,18 @@ class ResourceController extends Controller
     {
         $rules = [
             'locale' => ['nullable', 'string', 'max:20'],
-            'term_ids' => ['array'],
-            'term_ids.*' => ['integer', 'exists:taxonomy_terms,id'],
         ];
+
+        foreach ($this->taxonomyFields($config) as $field) {
+            $rules[$field['name']] = ['nullable', 'array'];
+            $rules["{$field['name']}.*"] = ['integer', 'exists:taxonomy_terms,id'];
+        }
 
         foreach ($config['form_sections'] as $section) {
             foreach ($section['fields'] as $field) {
                 $name = $field['name'];
                 if (
-                    in_array($name, ['term_ids'], true)
-                    || ($field['readonly'] ?? false)
+                    ($field['readonly'] ?? false)
                     || in_array($field['type'], ['taxonomy', 'linked_taxonomy', 'image_upload', 'file_upload', 'dynamic_fields', 'updatetime'], true)
                 ) {
                     if (($field['type'] ?? null) === 'dynamic_fields') {
@@ -597,13 +603,19 @@ class ResourceController extends Controller
         ]);
     }
 
-    private function syncTerms(Model $item, array $config, array $termIds): void
+    private function syncTerms(Model $item, array $config, array $data): void
     {
         if (empty($config['category_relation'])) {
             return;
         }
 
-        $payload = collect($termIds)
+        $termIds = collect($this->taxonomyFields($config))
+            ->flatMap(fn (array $field) => Arr::wrap($data[$field['name']] ?? []))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $payload = $termIds
             ->filter()
             ->values()
             ->mapWithKeys(fn ($termId, $index) => [(int) $termId => ['sort_order' => $index + 1]])
@@ -725,18 +737,48 @@ class ResourceController extends Controller
 
     private function taxonomyOptions(array $config, $site, ?string $locale): array
     {
-        if (!$site || empty($config['taxonomy'])) {
+        $fields = $this->taxonomyFields($config);
+        if (!$site || $fields === []) {
             return [];
         }
 
+        $field = $fields[0];
+        $taxonomyCode = $this->fieldTaxonomyCode($field, $config);
+
         $taxonomy = $this->treeService->taxonomyForSite(
             $site,
-            $config['taxonomy'],
-            "{$config['label']}\u{5206}\u{985E}",
-            (bool) ($config['taxonomy_hierarchical'] ?? true)
+            $taxonomyCode,
+            $this->taxonomyLabel($taxonomyCode, $config),
+            (bool) ($field['taxonomy_hierarchical'] ?? $config['taxonomy_hierarchical'] ?? true)
         );
 
         return $this->treeService->flattenedOptions($taxonomy, $locale)->all();
+    }
+
+    private function taxonomyOptionsByField(array $config, $site, ?string $locale): array
+    {
+        if (!$site) {
+            return [];
+        }
+
+        $options = [];
+        foreach ($this->taxonomyFields($config) as $field) {
+            $taxonomyCode = $this->fieldTaxonomyCode($field, $config);
+            if ($taxonomyCode === '') {
+                continue;
+            }
+
+            $taxonomy = $this->treeService->taxonomyForSite(
+                $site,
+                $taxonomyCode,
+                $this->taxonomyLabel($taxonomyCode, $config),
+                (bool) ($field['taxonomy_hierarchical'] ?? $config['taxonomy_hierarchical'] ?? true)
+            );
+
+            $options[$field['name']] = $this->treeService->flattenedOptions($taxonomy, $locale)->all();
+        }
+
+        return $options;
     }
 
     private function selectedTermIds(?Model $item, array $config): array
@@ -746,6 +788,60 @@ class ResourceController extends Controller
         }
 
         return $item->{$config['category_relation']}->pluck('id')->all();
+    }
+
+    private function selectedTermIdsByField(?Model $item, array $config): array
+    {
+        $selected = [];
+        foreach ($this->taxonomyFields($config) as $field) {
+            $selected[$field['name']] = [];
+        }
+
+        if (!$item || empty($config['category_relation'])) {
+            return $selected;
+        }
+
+        $terms = $item->{$config['category_relation']}()->with('taxonomy')->get();
+        foreach ($this->taxonomyFields($config) as $field) {
+            $taxonomyCode = $this->fieldTaxonomyCode($field, $config);
+            $selected[$field['name']] = $terms
+                ->filter(fn (TaxonomyTerm $term) => $term->taxonomy?->code === $taxonomyCode)
+                ->pluck('id')
+                ->all();
+        }
+
+        return $selected;
+    }
+
+    private function taxonomyFields(array $config): array
+    {
+        return collect($config['form_sections'] ?? [])
+            ->flatMap(fn (array $section) => $section['fields'] ?? [])
+            ->filter(fn (array $field) => in_array($field['type'] ?? null, ['taxonomy', 'linked_taxonomy'], true))
+            ->values()
+            ->all();
+    }
+
+    private function fieldTaxonomyCode(array $field, array $config): string
+    {
+        $category = $field['taxonomy_code'] ?? $field['category'] ?? $config['taxonomy'] ?? '';
+
+        if (is_array($category)) {
+            return (string) end($category);
+        }
+
+        return (string) $category;
+    }
+
+    private function taxonomyLabel(string $taxonomyCode, array $config): string
+    {
+        if (($config['taxonomy'] ?? null) === $taxonomyCode && !empty($config['taxonomy_label'])) {
+            return (string) $config['taxonomy_label'];
+        }
+
+        return CmsSetLoader::get($taxonomyCode, 'taxonomy')['taxonomy_label']
+            ?? CmsSetLoader::get($taxonomyCode, 'taxonomy')['label']
+            ?? $taxonomyCode;
     }
 
     private function mediaByRoleForItem(?Model $item, array $config): array

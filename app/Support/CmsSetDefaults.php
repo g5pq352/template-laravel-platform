@@ -257,7 +257,8 @@ class CmsSetDefaults
         $legacyField = $field['legacy_field'] ?? null;
         if (($field['type'] ?? null) === 'select' && !empty($field['category']) && !(($config['pageType'] ?? null) === 'taxonomy' && $legacyField === 'parent_id')) {
             $field['type'] = !empty($field['linked']) || is_array($legacyField) ? 'linked_taxonomy' : 'taxonomy';
-            $field['name'] = 'term_ids';
+            $field['name'] = self::taxonomyInputName($legacyField);
+            $field['taxonomy_code'] = self::taxonomyCode($field['category']);
         }
 
         if (($field['maps_to'] ?? null) === null && ($field['name'] ?? null) !== ($legacyField ?? null)) {
@@ -325,6 +326,34 @@ class CmsSetDefaults
         }
 
         return self::mapsToField($legacyField, $config) ?? $legacyField;
+    }
+
+    private static function taxonomyInputName(mixed $legacyField): string
+    {
+        if (is_array($legacyField)) {
+            return 'term_ids';
+        }
+
+        $legacyField = (string) ($legacyField ?? '');
+
+        if ($legacyField === '' || preg_match('/^[dt]_class\d+$/', $legacyField)) {
+            return 'term_ids';
+        }
+
+        return 'term_ids_' . Str::of($legacyField)
+            ->replace(['[', ']', '-', '.'], '_')
+            ->snake()
+            ->trim('_')
+            ->toString();
+    }
+
+    private static function taxonomyCode(mixed $category): string
+    {
+        if (is_array($category)) {
+            return (string) end($category);
+        }
+
+        return (string) $category;
     }
 
     private static function mapsToField(mixed $legacyField, array $config): ?string

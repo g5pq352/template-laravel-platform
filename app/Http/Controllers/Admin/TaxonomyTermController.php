@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -107,6 +108,8 @@ class TaxonomyTermController extends Controller
             'parentOptions' => $taxonomyModel->is_hierarchical
                 ? $this->treeService->flattenedOptions($taxonomyModel, $site->default_locale)->all()
                 : [],
+            'taxonomyOptionsByField' => $this->taxonomyOptionsByField($taxonomyConfig, $site, $site->default_locale),
+            'selectedTermIdsByField' => [],
             'values' => ['parent_id' => $parentId, 'locale' => $site->default_locale, 'is_active' => true, 'sort_order' => 0],
         ]);
     }
@@ -117,10 +120,11 @@ class TaxonomyTermController extends Controller
         abort_unless($site, 404);
 
         $taxonomyModel = $this->taxonomyForSite($site, $taxonomy);
-        $data = $this->validatedData($request, $taxonomyModel->id, hierarchical: (bool) $taxonomyModel->is_hierarchical);
+        $taxonomyConfig = $this->taxonomyConfig($taxonomy);
+        $data = $this->validatedData($request, $taxonomyModel->id, hierarchical: (bool) $taxonomyModel->is_hierarchical, config: $taxonomyConfig);
         $parentId = $taxonomyModel->is_hierarchical ? (($data['parent_id'] ?? null) ?: null) : null;
 
-        TaxonomyTerm::query()->create([
+        $term = TaxonomyTerm::query()->create([
             'taxonomy_id' => $taxonomyModel->id,
             'parent_id' => $parentId,
             'locale' => $data['locale'],
@@ -133,6 +137,8 @@ class TaxonomyTermController extends Controller
             'sort_order' => $this->nextSortOrder($taxonomyModel->id, $data['locale'], $parentId),
         ]);
 
+        $this->syncRelatedTerms($term, $taxonomyConfig, $data);
+
         return redirect()
             ->route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parentId]))
             ->with('status', '分類已建立。');
@@ -142,17 +148,21 @@ class TaxonomyTermController extends Controller
     {
         $this->authorizeTerm($context, $taxonomy, $term);
 
+        $taxonomyConfig = $this->taxonomyConfig($taxonomy);
+
         return view('admin.taxonomies.form', [
             'admin' => $context->user(),
             'site' => $context->site(),
             'sites' => $context->sites(),
             'taxonomy' => $taxonomy,
             'taxonomyModel' => $term->taxonomy,
-            'taxonomyConfig' => $this->taxonomyConfig($taxonomy),
+            'taxonomyConfig' => $taxonomyConfig,
             'term' => $term,
             'parentOptions' => $term->taxonomy->is_hierarchical
                 ? $this->treeService->flattenedOptions($term->taxonomy, $term->locale, $term->id)->all()
                 : [],
+            'taxonomyOptionsByField' => $this->taxonomyOptionsByField($taxonomyConfig, $term->taxonomy->site, $term->locale, $term->id),
+            'selectedTermIdsByField' => $this->selectedRelatedTermIdsByField($term, $taxonomyConfig),
             'values' => $term->attributesToArray(),
         ]);
     }
@@ -161,7 +171,8 @@ class TaxonomyTermController extends Controller
     {
         $this->authorizeTerm($context, $taxonomy, $term);
 
-        $data = $this->validatedData($request, $term->taxonomy_id, $term->id, (bool) $term->taxonomy->is_hierarchical);
+        $taxonomyConfig = $this->taxonomyConfig($taxonomy);
+        $data = $this->validatedData($request, $term->taxonomy_id, $term->id, (bool) $term->taxonomy->is_hierarchical, $taxonomyConfig);
         $parentId = $term->taxonomy->is_hierarchical ? (($data['parent_id'] ?? null) ?: null) : null;
 
         $term->update([
@@ -176,6 +187,7 @@ class TaxonomyTermController extends Controller
         ]);
 
         $this->normalizeSiblingsAfterTreeChange($term);
+        $this->syncRelatedTerms($term, $taxonomyConfig, $data);
 
         return redirect()->route('admin.taxonomies.edit', [$taxonomy, $term])->with('status', '分類已更新。');
     }
@@ -352,7 +364,7 @@ class TaxonomyTermController extends Controller
                     'needs_confirm' => $data['action'] === 'delete',
                     'needs_force' => $data['action'] === 'force_delete',
                     'title' => $data['action'] === 'delete' ? '分類內還有資料' : '分類仍有關聯資料',
-                    'message' => $this->termDeleteImpactMessage($impact, $data['action'] === 'delete'),
+                    'message' => $this->termDeleteImpactMessageUtf8($impact, $data['action'] === 'delete'),
                 ]);
             }
         }
@@ -380,7 +392,7 @@ class TaxonomyTermController extends Controller
         ]);
     }
 
-    private function validatedData(Request $request, int $taxonomyId, ?int $ignoreId = null, bool $hierarchical = true): array
+    private function validatedData(Request $request, int $taxonomyId, ?int $ignoreId = null, bool $hierarchical = true, array $config = []): array
     {
         $rules = [
             'parent_id' => [
@@ -399,6 +411,11 @@ class TaxonomyTermController extends Controller
 
         if (!$hierarchical) {
             $rules['parent_id'] = ['nullable'];
+        }
+
+        foreach ($this->taxonomyFields($config) as $field) {
+            $rules[$field['name']] = ['nullable', 'array'];
+            $rules["{$field['name']}.*"] = ['integer', 'exists:taxonomy_terms,id'];
         }
 
         return $request->validate($rules);
@@ -439,6 +456,108 @@ class TaxonomyTermController extends Controller
         }
 
         return [];
+    }
+
+    private function taxonomyOptionsByField(array $config, Site $site, ?string $locale, ?int $excludeId = null): array
+    {
+        $options = [];
+        foreach ($this->taxonomyFields($config) as $field) {
+            $taxonomyCode = $this->fieldTaxonomyCode($field);
+            if ($taxonomyCode === '') {
+                continue;
+            }
+
+            $taxonomy = $this->treeService->taxonomyForSite(
+                $site,
+                $taxonomyCode,
+                CmsSetLoader::get($taxonomyCode, 'taxonomy')['taxonomy_label'] ?? $taxonomyCode,
+                (bool) ($field['taxonomy_hierarchical'] ?? CmsSetLoader::get($taxonomyCode, 'taxonomy')['taxonomy_hierarchical'] ?? true)
+            );
+
+            $fieldExcludeId = $taxonomyCode === ($config['taxonomy'] ?? null) ? $excludeId : null;
+            $options[$field['name']] = $this->treeService->flattenedOptions($taxonomy, $locale, $fieldExcludeId)->all();
+        }
+
+        return $options;
+    }
+
+    private function selectedRelatedTermIdsByField(?TaxonomyTerm $term, array $config): array
+    {
+        $selected = [];
+        foreach ($this->taxonomyFields($config) as $field) {
+            $selected[$field['name']] = [];
+        }
+
+        if (!$term) {
+            return $selected;
+        }
+
+        $relatedTerms = $term->relatedTerms()->with('taxonomy')->get();
+        foreach ($this->taxonomyFields($config) as $field) {
+            $selected[$field['name']] = $relatedTerms
+                ->filter(fn (TaxonomyTerm $related) => $related->pivot?->field === $field['name'])
+                ->pluck('id')
+                ->all();
+        }
+
+        return $selected;
+    }
+
+    private function syncRelatedTerms(TaxonomyTerm $term, array $config, array $data): void
+    {
+        $fields = $this->taxonomyFields($config);
+        if ($fields === []) {
+            return;
+        }
+
+        $fieldNames = collect($fields)->pluck('name')->all();
+        DB::table('taxonomy_term_relations')
+            ->where('source_term_id', $term->id)
+            ->whereIn('field', $fieldNames)
+            ->delete();
+
+        $rows = [];
+        foreach ($fields as $field) {
+            foreach (array_values(array_unique(Arr::wrap($data[$field['name']] ?? []))) as $index => $relatedTermId) {
+                $relatedTermId = (int) $relatedTermId;
+                if ($relatedTermId <= 0 || $relatedTermId === (int) $term->id) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'source_term_id' => $term->id,
+                    'related_term_id' => $relatedTermId,
+                    'field' => $field['name'],
+                    'sort_order' => $index + 1,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if ($rows !== []) {
+            DB::table('taxonomy_term_relations')->insert($rows);
+        }
+    }
+
+    private function taxonomyFields(array $config): array
+    {
+        return collect($config['form_sections'] ?? [])
+            ->flatMap(fn (array $section) => $section['fields'] ?? [])
+            ->filter(fn (array $field) => in_array($field['type'] ?? null, ['taxonomy', 'linked_taxonomy'], true))
+            ->values()
+            ->all();
+    }
+
+    private function fieldTaxonomyCode(array $field): string
+    {
+        $category = $field['taxonomy_code'] ?? $field['category'] ?? '';
+
+        if (is_array($category)) {
+            return (string) end($category);
+        }
+
+        return (string) $category;
     }
 
     private function nextSortOrder(int $taxonomyId, string $locale, ?int $parentId): int
@@ -490,12 +609,16 @@ class TaxonomyTermController extends Controller
     {
         DB::table('content_term')->whereIn('taxonomy_term_id', $ids)->delete();
         DB::table('product_category_product')->whereIn('taxonomy_term_id', $ids)->delete();
+        DB::table('taxonomy_term_relations')
+            ->whereIn('source_term_id', $ids)
+            ->orWhereIn('related_term_id', $ids)
+            ->delete();
     }
 
     private function termDeleteImpact(array $ids, bool $includeTrashedItems = false): array
     {
         if ($ids === []) {
-            return ['content' => 0, 'product' => 0, 'total' => 0];
+            return ['content' => 0, 'product' => 0, 'term_relation' => 0, 'total' => 0];
         }
 
         $contentQuery = DB::table('content_term')
@@ -513,11 +636,16 @@ class TaxonomyTermController extends Controller
 
         $contentCount = (int) $contentQuery->distinct('contents.id')->count('contents.id');
         $productCount = (int) $productQuery->distinct('products.id')->count('products.id');
+        $termRelationCount = (int) DB::table('taxonomy_term_relations')
+            ->whereIn('source_term_id', $ids)
+            ->orWhereIn('related_term_id', $ids)
+            ->count();
 
         return [
             'content' => $contentCount,
             'product' => $productCount,
-            'total' => $contentCount + $productCount,
+            'term_relation' => $termRelationCount,
+            'total' => $contentCount + $productCount + $termRelationCount,
         ];
     }
 
@@ -529,11 +657,31 @@ class TaxonomyTermController extends Controller
                 'needs_confirm' => $softDelete,
                 'needs_force' => !$softDelete,
                 'title' => $softDelete ? '分類內還有資料' : '分類仍有關聯資料',
-                'message' => $this->termDeleteImpactMessage($impact, $softDelete),
+                'message' => $this->termDeleteImpactMessageUtf8($impact, $softDelete),
             ], 409);
         }
 
-        return back()->withErrors([$this->termDeleteImpactMessage($impact, $softDelete)]);
+        return back()->withErrors([$this->termDeleteImpactMessageUtf8($impact, $softDelete)]);
+    }
+
+    private function termDeleteImpactMessageUtf8(array $impact, bool $softDelete): string
+    {
+        $lines = [];
+        if (($impact['content'] ?? 0) > 0) {
+            $lines[] = "內容資料：{$impact['content']} 筆";
+        }
+        if (($impact['product'] ?? 0) > 0) {
+            $lines[] = "產品資料：{$impact['product']} 筆";
+        }
+        if (($impact['term_relation'] ?? 0) > 0) {
+            $lines[] = "分類關聯：{$impact['term_relation']} 筆";
+        }
+
+        $description = $softDelete
+            ? '這個分類仍有關聯資料。確認後會先移到垃圾桶，關聯資料會保留，還原分類後可以繼續使用。'
+            : '這個分類仍有關聯資料。強制刪除會永久移除分類，並清除內容、產品與分類之間的關聯。';
+
+        return implode("\n", $lines) . "\n\n" . $description;
     }
 
     private function termDeleteImpactMessage(array $impact, bool $softDelete): string

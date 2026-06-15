@@ -37,6 +37,7 @@ return [
                 ['type' => 'select', 'field' => 'parent_id', 'label' => '父層分類', 'category' => $module, 'note' => '選擇「頂層」或所屬的父層分類'],
                 ['type' => 'text', 'field' => 't_name', 'label' => '分類名稱', 'required' => true, 'checkDuplicate' => true],
                 ['type' => 'textarea', 'field' => 'description', 'label' => '描述', 'rows' => 5],
+                ['type' => 'select', 'field' => 't_tag', 'label' => '標籤', 'category' => 'productTag', 'multiple' => true],
                 ['type' => 'select', 'field' => 't_active', 'label' => '顯示狀態'],
             ],
         ],

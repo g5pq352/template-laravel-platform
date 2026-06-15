@@ -43,6 +43,13 @@ return [
                     'linked' => $hasHierarchy,
                 ],
                 [
+                    'type' => 'select',
+                    'field' => 'd_tag',
+                    'label' => '標籤',
+                    'category' => 'productTag',
+                    'multiple' => true,
+                ],
+                [
                     'type' => 'text',
                     'field' => 'd_title',
                     'label' => '標題',
