@@ -253,6 +253,7 @@
         .cms-dynamic-fields .dynamic-subfield:last-child{border-bottom:0}
         .cms-dynamic-fields .dynamic-subfield-label{display:block;margin-bottom:10px;color:#555;font-size:13px;font-weight:600}
         .cms-dynamic-fields .form-control{width:100%;height:46px;padding:10px 12px;border:1px solid #d6d6d6;border-radius:3px;background:#fff;color:#333;font-size:13px;box-shadow:none}
+        .cms-dynamic-fields select.form-control{padding-right:34px;appearance:auto;-webkit-appearance:menulist;-moz-appearance:auto;background-color:#fff}
         .cms-dynamic-fields textarea.form-control{height:auto;min-height:98px;resize:vertical}
         .cms-dynamic-fields .dynamic-image-line{display:flex;align-items:flex-start;gap:15px}
         .cms-dynamic-fields .dynamic-image-preview{width:100px;height:100px;border:1px solid #ddd;background:#000;overflow:hidden;flex-shrink:0}
