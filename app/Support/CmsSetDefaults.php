@@ -16,7 +16,7 @@ class CmsSetDefaults
         $explicit = $config;
         $filenameKey = self::keyFromFilename($file);
         $module = $config['module'] ?? $filenameKey;
-        $pageType = $config['pageType'] ?? (Str::endsWith($filenameKey, 'Info') ? 'info' : 'list');
+        $pageType = $config['pageType'] ?? self::defaultPageType($filenameKey, $config);
         $strategy = $config['strategy'] ?? self::defaultStrategy($module, $pageType);
         $common = require config_path('cms/set_common.php');
 
@@ -32,6 +32,10 @@ class CmsSetDefaults
 
         if ($pageType === 'list') {
             $config = array_replace($common['list'], $config);
+        }
+
+        if ($pageType === 'taxonomy') {
+            $config = array_replace($common['taxonomy'] ?? [], $config);
         }
 
         if ($pageType === 'info') {
@@ -76,11 +80,31 @@ class CmsSetDefaults
             return 'content';
         }
 
+        if ($pageType === 'taxonomy') {
+            return 'taxonomy';
+        }
+
         return match ($module) {
             'product', 'products' => 'product',
             'contact', 'contactus' => 'contact',
             default => 'content',
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private static function defaultPageType(string $filenameKey, array $config): string
+    {
+        if (Str::endsWith($filenameKey, 'Info')) {
+            return 'info';
+        }
+
+        if (($config['strategy'] ?? null) === 'taxonomy' || ($config['tableName'] ?? null) === 'taxonomies') {
+            return 'taxonomy';
+        }
+
+        return 'list';
     }
 
     /**
@@ -94,7 +118,7 @@ class CmsSetDefaults
                 foreach ($section['fields'] ?? [] as $index => $field) {
                     $field = self::normalizeField($field, $config);
 
-                    if (($field['type'] ?? null) === 'select' && ($field['maps_to'] ?? $field['name'] ?? null) === 'status') {
+                    if (($field['type'] ?? null) === 'select' && in_array(($field['maps_to'] ?? $field['name'] ?? null), ['status', 'is_active'], true)) {
                         $field['options'] = $config['status_options'] ?? [];
                     }
 
@@ -138,7 +162,7 @@ class CmsSetDefaults
             $config['taxonomy_hierarchical'] = is_array($config['listPage']['categoryField']);
         }
 
-        if (!isset($config['form_sections']) && isset($config['detailPage']) && ($config['pageType'] ?? null) === 'list') {
+        if (!isset($config['form_sections']) && isset($config['detailPage']) && in_array(($config['pageType'] ?? null), ['list', 'taxonomy'], true)) {
             $config['form_sections'] = self::normalizeSections($config['detailPage']);
         }
 
@@ -231,7 +255,7 @@ class CmsSetDefaults
         }
 
         $legacyField = $field['legacy_field'] ?? null;
-        if (($field['type'] ?? null) === 'select' && !empty($field['category'])) {
+        if (($field['type'] ?? null) === 'select' && !empty($field['category']) && !(($config['pageType'] ?? null) === 'taxonomy' && $legacyField === 'parent_id')) {
             $field['type'] = !empty($field['linked']) || is_array($legacyField) ? 'linked_taxonomy' : 'taxonomy';
             $field['name'] = 'term_ids';
         }
@@ -286,6 +310,7 @@ class CmsSetDefaults
                 'd_date' => 'published_at',
                 'm_date' => 'created_at',
                 'd_title', 'm_title' => ($config['strategy'] ?? null) === 'product' ? 'name' : 'title',
+                't_name' => 'name',
                 'd_view' => 'view_count',
                 'image' => 'image',
                 'd_active', 't_active', 'm_active' => 'status',
@@ -318,6 +343,11 @@ class CmsSetDefaults
             'd_slug' => 'slug',
             'd_seo_title' => 'seo_title',
             'd_description' => 'seo_description',
+            't_name' => 'name',
+            't_slug' => 'slug',
+            't_seo_title' => 'seo_title',
+            't_description' => 'seo_description',
+            't_active' => 'is_active',
             'm_inquiry' => 'inquiry',
             'm_title' => 'subject',
             'm_name' => 'name',

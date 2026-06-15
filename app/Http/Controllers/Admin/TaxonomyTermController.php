@@ -33,6 +33,7 @@ class TaxonomyTermController extends Controller
         abort_unless($site, 404);
 
         $taxonomyModel = $this->taxonomyForSite($site, $taxonomy);
+        $taxonomyConfig = $this->taxonomyConfig($taxonomy);
         $parentId = $request->integer('parent_id') ?: null;
         $trash = $request->boolean('trash');
         $useHierarchy = (bool) $taxonomyModel->is_hierarchical;
@@ -71,6 +72,7 @@ class TaxonomyTermController extends Controller
             'sites' => $context->sites(),
             'taxonomy' => $taxonomy,
             'taxonomyModel' => $taxonomyModel,
+            'taxonomyConfig' => $taxonomyConfig,
             'parent' => $parent,
             'trash' => $trash,
             'trashCount' => TaxonomyTerm::query()->where('taxonomy_id', $taxonomyModel->id)->onlyTrashed()->count(),
@@ -91,6 +93,7 @@ class TaxonomyTermController extends Controller
         abort_unless($site, 404);
 
         $taxonomyModel = $this->taxonomyForSite($site, $taxonomy);
+        $taxonomyConfig = $this->taxonomyConfig($taxonomy);
         $parentId = $taxonomyModel->is_hierarchical ? ($request->integer('parent_id') ?: null) : null;
 
         return view('admin.taxonomies.form', [
@@ -99,6 +102,7 @@ class TaxonomyTermController extends Controller
             'sites' => $context->sites(),
             'taxonomy' => $taxonomy,
             'taxonomyModel' => $taxonomyModel,
+            'taxonomyConfig' => $taxonomyConfig,
             'term' => null,
             'parentOptions' => $taxonomyModel->is_hierarchical
                 ? $this->treeService->flattenedOptions($taxonomyModel, $site->default_locale)->all()
@@ -144,6 +148,7 @@ class TaxonomyTermController extends Controller
             'sites' => $context->sites(),
             'taxonomy' => $taxonomy,
             'taxonomyModel' => $term->taxonomy,
+            'taxonomyConfig' => $this->taxonomyConfig($taxonomy),
             'term' => $term,
             'parentOptions' => $term->taxonomy->is_hierarchical
                 ? $this->treeService->flattenedOptions($term->taxonomy, $term->locale, $term->id)->all()
@@ -422,6 +427,11 @@ class TaxonomyTermController extends Controller
      */
     private function taxonomyConfig(string $taxonomy): array
     {
+        $config = CmsSetLoader::get($taxonomy, 'taxonomy');
+        if ($config) {
+            return $config;
+        }
+
         foreach (CmsSetLoader::all('list') as $config) {
             if (($config['taxonomy'] ?? null) === $taxonomy) {
                 return $config;

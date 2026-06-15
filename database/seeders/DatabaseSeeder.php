@@ -64,12 +64,14 @@ class DatabaseSeeder extends Seeder
             }
 
             foreach ([
-                'newsCate' => ['name' => '最新消息分類', 'terms' => ['公司消息', '活動公告']],
-                'productCate' => ['name' => '產品分類', 'terms' => ['主要商品', '精選商品']],
+                'newsCate' => ['name' => '最新消息分類', 'hierarchical' => false, 'terms' => ['公司消息', '活動公告']],
+                'newsTag' => ['name' => '最新消息標籤', 'hierarchical' => false, 'terms' => ['重要', '活動']],
+                'productCate' => ['name' => '產品分類', 'hierarchical' => true, 'terms' => ['主要商品', '精選商品']],
+                'productTag' => ['name' => '產品標籤', 'hierarchical' => false, 'terms' => ['新品', '熱銷']],
             ] as $code => $taxonomyConfig) {
                 $taxonomy = Taxonomy::query()->updateOrCreate(
                     ['site_id' => $site->id, 'code' => $code],
-                    ['name' => $taxonomyConfig['name'], 'is_hierarchical' => true]
+                    ['name' => $taxonomyConfig['name'], 'is_hierarchical' => $taxonomyConfig['hierarchical']]
                 );
 
                 foreach ($taxonomyConfig['terms'] as $index => $termName) {
@@ -129,12 +131,12 @@ class DatabaseSeeder extends Seeder
                     'news' => [
                         ['title' => '最新消息列表', 'module_key' => 'news.list', 'route_name' => 'admin.news.index'],
                         ['title' => '分類', 'module_key' => 'news.categories', 'route_name' => 'admin.taxonomies.index', 'settings' => ['route_params' => ['taxonomy' => 'newsCate']]],
-                        ['title' => '標籤', 'module_key' => 'news.tags', 'url' => '#'],
+                        ['title' => '標籤', 'module_key' => 'news.tags', 'route_name' => 'admin.taxonomies.index', 'settings' => ['route_params' => ['taxonomy' => 'newsTag']]],
                     ],
                     'products' => [
                         ['title' => '產品列表', 'module_key' => 'products.list', 'route_name' => 'admin.products.index'],
                         ['title' => '分類', 'module_key' => 'products.categories', 'route_name' => 'admin.taxonomies.index', 'settings' => ['route_params' => ['taxonomy' => 'productCate']]],
-                        ['title' => '標籤', 'module_key' => 'products.tags', 'url' => '#'],
+                        ['title' => '標籤', 'module_key' => 'products.tags', 'route_name' => 'admin.taxonomies.index', 'settings' => ['route_params' => ['taxonomy' => 'productTag']]],
                     ],
                     'contact' => [
                         ['title' => '聯絡我們列表', 'module_key' => 'contact.list', 'route_name' => 'admin.contact.index'],

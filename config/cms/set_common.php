@@ -48,6 +48,16 @@ return [
         'status' => false,
     ],
 
+    'taxonomy' => [
+        'strategy' => 'taxonomy',
+        'show_add_button' => true,
+        'sort_column' => 'sort_order',
+        'status_options' => [
+            1 => '顯示',
+            0 => '不顯示',
+        ],
+    ],
+
     'strategies' => [
         'content' => [
             'category_relation' => 'terms',

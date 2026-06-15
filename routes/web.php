@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\InfoModuleController;
 use App\Http\Controllers\Admin\ResourceController;
 use App\Http\Controllers\Admin\SiteController;
 use App\Http\Controllers\Admin\TaxonomyTermController;
+use App\Support\CmsSetLoader;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -47,7 +48,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/contents/{content}', [ContentController::class, 'update'])->name('contents.update');
         Route::delete('/contents/{content}', [ContentController::class, 'destroy'])->name('contents.destroy');
 
-        foreach (['news', 'products', 'contact'] as $resource) {
+        foreach (array_keys(CmsSetLoader::all('list')) as $resource) {
             Route::get("/{$resource}", [ResourceController::class, 'index'])->defaults('resource', $resource)->name("{$resource}.index");
             Route::get("/{$resource}/create", [ResourceController::class, 'create'])->defaults('resource', $resource)->name("{$resource}.create");
             Route::post("/{$resource}", [ResourceController::class, 'store'])->defaults('resource', $resource)->name("{$resource}.store");

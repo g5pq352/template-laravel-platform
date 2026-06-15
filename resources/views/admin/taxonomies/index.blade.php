@@ -2,6 +2,9 @@
 
 @php
     $useHierarchy = $taxonomyModel->is_hierarchical ?? true;
+    $termNameColumn = collect($taxonomyConfig['list_columns'] ?? [])->firstWhere('key', 'name');
+    $termNameLabel = $termNameColumn['label'] ?? '分類名稱';
+    $listTitle = $taxonomyConfig['listPage']['title'] ?? '分類列表';
 @endphp
 
 @section('title', $taxonomyModel->name)
@@ -9,7 +12,7 @@
 
 @section('breadcrumb')
     <li><span>{{ $taxonomyModel->name }}</span></li>
-    <li><span>分類列表</span></li>
+    <li><span>{{ $listTitle }}</span></li>
 @endsection
 
 @section('content')
@@ -86,7 +89,7 @@
                                 <th width="3%" class="sorting_disabled"><input type="checkbox" name="select-all" class="select-all checkbox-style-1 p-relative top-2" value=""></th>
                                 <th width="74" class="sorting_disabled">排序</th>
                                 <th width="142" class="sorting_disabled">建立日期</th>
-                                <th width="400" class="sorting_disabled">分類名稱</th>
+                                <th width="400" class="sorting_disabled">{{ $termNameLabel }}</th>
                                 @if($useHierarchy)
                                     <th width="60" class="sorting_disabled">下一層</th>
                                 @endif

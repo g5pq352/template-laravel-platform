@@ -21,8 +21,8 @@
         && (!$homeContentTypeId || (string) request()->query('content_type_id') === (string) $homeContentTypeId);
     $isHome = $isHomeContent || (request()->routeIs('admin.info.*') && request()->route('module') === 'popInfo');
     $isDashboard = request()->routeIs('admin.dashboard');
-    $isNews = request()->routeIs('admin.news.*') || (request()->routeIs('admin.taxonomies.*') && $taxonomy === 'newsCate');
-    $isProducts = request()->routeIs('admin.products.*') || (request()->routeIs('admin.taxonomies.*') && $taxonomy === 'productCate');
+    $isNews = request()->routeIs('admin.news.*') || (request()->routeIs('admin.taxonomies.*') && in_array($taxonomy, ['newsCate', 'newsTag'], true));
+    $isProducts = request()->routeIs('admin.products.*') || (request()->routeIs('admin.taxonomies.*') && in_array($taxonomy, ['productCate', 'productTag'], true));
     $isContact = request()->routeIs('admin.contact.*');
     $isSettings = request()->routeIs('admin.settings.*') || (request()->routeIs('admin.info.*') && request()->route('module') === 'keywordsInfo');
     $isMenus = request()->routeIs('admin.menus.*');
@@ -170,6 +170,9 @@
                                         <li @class(['nav-active' => request()->routeIs('admin.taxonomies.*') && $taxonomy === 'newsCate'])>
                                             <a class="nav-link" href="{{ route('admin.taxonomies.index', 'newsCate') }}">分類</a>
                                         </li>
+                                        <li @class(['nav-active' => request()->routeIs('admin.taxonomies.*') && $taxonomy === 'newsTag'])>
+                                            <a class="nav-link" href="{{ route('admin.taxonomies.index', 'newsTag') }}">標籤</a>
+                                        </li>
                                     </ul>
                                 </li>
 
@@ -184,6 +187,9 @@
                                         </li>
                                         <li @class(['nav-active' => request()->routeIs('admin.taxonomies.*') && $taxonomy === 'productCate'])>
                                             <a class="nav-link" href="{{ route('admin.taxonomies.index', 'productCate') }}">分類</a>
+                                        </li>
+                                        <li @class(['nav-active' => request()->routeIs('admin.taxonomies.*') && $taxonomy === 'productTag'])>
+                                            <a class="nav-link" href="{{ route('admin.taxonomies.index', 'productTag') }}">標籤</a>
                                         </li>
                                     </ul>
                                 </li>
