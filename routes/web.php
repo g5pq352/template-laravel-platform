@@ -34,6 +34,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/media-library/folders/{folder}', [MediaLibraryController::class, 'destroyFolder'])->name('media-library.folders.destroy');
         Route::post('/media-library/media', [MediaLibraryController::class, 'storeMedia'])->name('media-library.media.store');
         Route::put('/media-library/media/{media}', [MediaLibraryController::class, 'updateMedia'])->name('media-library.media.update');
+        Route::patch('/media-library/media/{media}/move', [MediaLibraryController::class, 'moveMedia'])->name('media-library.media.move');
         Route::delete('/media-library/media/{media}', [MediaLibraryController::class, 'destroyMedia'])->name('media-library.media.destroy');
         Route::post('/media-library/media/{id}/restore', [MediaLibraryController::class, 'restoreMedia'])->name('media-library.media.restore');
         Route::delete('/media-library/media/{id}/force-delete', [MediaLibraryController::class, 'forceDeleteMedia'])->name('media-library.media.force-delete');

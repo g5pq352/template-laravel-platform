@@ -4,7 +4,11 @@
         $hasChildren = !empty($node['children']);
     @endphp
     <div class="media-folder-node-wrap">
-        <a @class(['media-folder-node', 'active' => $isActive]) href="{{ route('admin.media-library.index', ['folder_id' => $node['id']]) }}">
+        <a
+            @class(['media-folder-node', 'media-folder-dropzone', 'active' => $isActive])
+            href="{{ route('admin.media-library.index', ['folder_id' => $node['id']]) }}"
+            data-folder-id="{{ $node['id'] }}"
+        >
             <i class="fas fa-folder"></i>
             <span>{{ $node['name'] }}</span>
         </a>

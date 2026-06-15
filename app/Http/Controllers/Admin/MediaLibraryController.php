@@ -24,7 +24,8 @@ class MediaLibraryController extends Controller
         $trash = $request->boolean('trash');
         $folderId = $request->integer('folder_id') ?: null;
         $keyword = trim((string) $request->query('keyword', ''));
-        $sort = $request->query('sort', 'date_desc');
+        $sort = (string) $request->query('sort', 'date_desc');
+        $perPage = min(max((int) $request->query('per_page', 24), 12), 96);
 
         $folder = $folderId
             ? MediaFolder::query()->where('site_id', $site->id)->with('parent')->findOrFail($folderId)
@@ -45,10 +46,13 @@ class MediaLibraryController extends Controller
 
         $mediaQuery = Media::query()
             ->where('site_id', $site->id)
-            ->where('collection_name', 'library')
-            ->where(function ($query) use ($folderId): void {
+            ->where('collection_name', 'library');
+
+        if (!$trash) {
+            $mediaQuery->where(function ($query) use ($folderId): void {
                 $folderId ? $query->where('folder_id', $folderId) : $query->whereNull('folder_id');
             });
+        }
 
         $trash ? $mediaQuery->onlyTrashed() : $mediaQuery->whereNull('deleted_at');
 
@@ -67,9 +71,7 @@ class MediaLibraryController extends Controller
             default => $mediaQuery->orderByDesc('created_at')->orderByDesc('id'),
         };
 
-        $mediaItems = $mediaQuery
-            ->paginate((int) $request->query('per_page', 24))
-            ->withQueryString();
+        $mediaItems = $mediaQuery->paginate($perPage)->withQueryString();
 
         return view('admin.media-library.index', [
             'admin' => $context->user(),
@@ -106,13 +108,12 @@ class MediaLibraryController extends Controller
         ]);
 
         $parentId = $data['parent_id'] ?? null;
-        $slug = $this->uniqueFolderSlug($site->id, $parentId, $data['name']);
 
         MediaFolder::query()->create([
             'site_id' => $site->id,
             'parent_id' => $parentId,
             'name' => $data['name'],
-            'slug' => $slug,
+            'slug' => $this->uniqueFolderSlug($site->id, $parentId, $data['name']),
             'sort_order' => ((int) MediaFolder::query()
                 ->where('site_id', $site->id)
                 ->where('parent_id', $parentId)
@@ -136,7 +137,7 @@ class MediaLibraryController extends Controller
             'slug' => $this->uniqueFolderSlug($site->id, $folder->parent_id, $data['name'], $folder->id),
         ]);
 
-        return back()->with('status', '資料夾已重新命名');
+        return back()->with('status', '資料夾已更新');
     }
 
     public function destroyFolder(AdminContext $context, MediaFolder $folder): RedirectResponse
@@ -144,25 +145,28 @@ class MediaLibraryController extends Controller
         $site = $context->site();
         abort_unless($site && (int) $folder->site_id === (int) $site->id, 404);
 
-        $hasChildren = MediaFolder::query()
-            ->where('site_id', $site->id)
-            ->where('parent_id', $folder->id)
-            ->exists();
-        $hasMedia = Media::query()
-            ->where('site_id', $site->id)
-            ->where('folder_id', $folder->id)
-            ->exists();
-
-        if ($hasChildren || $hasMedia) {
-            return back()->with('error', '資料夾內還有資料，請先移動或刪除裡面的圖片與子資料夾');
-        }
-
         $parentId = $folder->parent_id;
-        $folder->delete();
+        $folderIds = $this->descendantFolderIds($folder);
+
+        DB::transaction(function () use ($site, $folderIds): void {
+            DB::table('media')
+                ->where('site_id', $site->id)
+                ->whereIn('folder_id', $folderIds)
+                ->whereNull('deleted_at')
+                ->update([
+                    'deleted_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            MediaFolder::query()
+                ->where('site_id', $site->id)
+                ->whereIn('id', $folderIds)
+                ->delete();
+        });
 
         return redirect()
             ->route('admin.media-library.index', array_filter(['folder_id' => $parentId]))
-            ->with('status', '資料夾已刪除');
+            ->with('status', '資料夾與其中圖片已移至垃圾桶');
     }
 
     public function storeMedia(AdminContext $context, Request $request): RedirectResponse
@@ -181,9 +185,10 @@ class MediaLibraryController extends Controller
         ]);
 
         foreach ($request->file('images', []) as $file) {
+            $name = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
             $media = $site
                 ->addMedia($file)
-                ->usingName(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME))
+                ->usingName($name)
                 ->withCustomProperties([
                     'uploaded_from' => 'cms_library',
                     'folder_id' => $data['folder_id'] ?? null,
@@ -193,7 +198,7 @@ class MediaLibraryController extends Controller
             DB::table('media')->where('id', $media->id)->update([
                 'site_id' => $site->id,
                 'folder_id' => $data['folder_id'] ?? null,
-                'alt_text' => pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME),
+                'alt_text' => $name,
                 'updated_at' => now(),
             ]);
         }
@@ -225,6 +230,29 @@ class MediaLibraryController extends Controller
         return back()->with('status', '圖片資料已更新');
     }
 
+    public function moveMedia(AdminContext $context, Request $request, Media $media): JsonResponse
+    {
+        $site = $context->site();
+        abort_unless($site && (int) $media->site_id === (int) $site->id, 404);
+
+        $data = $request->validate([
+            'folder_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('media_folders', 'id')->where('site_id', $site->id),
+            ],
+        ]);
+
+        $media->forceFill([
+            'folder_id' => $data['folder_id'] ?? null,
+        ])->save();
+
+        return response()->json([
+            'ok' => true,
+            'message' => '圖片已移動',
+        ]);
+    }
+
     public function destroyMedia(AdminContext $context, Media $media): RedirectResponse
     {
         $site = $context->site();
@@ -235,7 +263,7 @@ class MediaLibraryController extends Controller
             'updated_at' => now(),
         ]);
 
-        return back()->with('status', '圖片已移到垃圾桶');
+        return back()->with('status', '圖片已移至垃圾桶');
     }
 
     public function restoreMedia(AdminContext $context, int $id): RedirectResponse
@@ -243,13 +271,21 @@ class MediaLibraryController extends Controller
         $site = $context->site();
         abort_unless($site, 404);
 
-        DB::table('media')
-            ->where('id', $id)
+        $media = Media::withTrashed()
             ->where('site_id', $site->id)
-            ->update([
-                'deleted_at' => null,
-                'updated_at' => now(),
-            ]);
+            ->findOrFail($id);
+
+        $folderId = $media->folder_id;
+        $folderExists = !$folderId || MediaFolder::query()
+            ->where('site_id', $site->id)
+            ->whereKey($folderId)
+            ->exists();
+
+        DB::table('media')->where('id', $media->id)->update([
+            'folder_id' => $folderExists ? $folderId : null,
+            'deleted_at' => null,
+            'updated_at' => now(),
+        ]);
 
         return back()->with('status', '圖片已還原');
     }
@@ -332,6 +368,27 @@ class MediaLibraryController extends Controller
         };
 
         return $build();
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function descendantFolderIds(MediaFolder $folder): array
+    {
+        $ids = [$folder->id];
+        $childIds = MediaFolder::query()
+            ->where('site_id', $folder->site_id)
+            ->where('parent_id', $folder->id)
+            ->pluck('id');
+
+        foreach ($childIds as $childId) {
+            $child = MediaFolder::query()->find($childId);
+            if ($child) {
+                array_push($ids, ...$this->descendantFolderIds($child));
+            }
+        }
+
+        return $ids;
     }
 
     private function uniqueFolderSlug(int $siteId, ?int $parentId, string $name, ?int $ignoreId = null): string
