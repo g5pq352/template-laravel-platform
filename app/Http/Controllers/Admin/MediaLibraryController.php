@@ -169,7 +169,7 @@ class MediaLibraryController extends Controller
             ->with('status', '資料夾與其中圖片已移至垃圾桶');
     }
 
-    public function storeMedia(AdminContext $context, Request $request): RedirectResponse
+    public function storeMedia(AdminContext $context, Request $request): RedirectResponse|JsonResponse
     {
         $site = $context->site();
         abort_unless($site, 404);
@@ -183,6 +183,8 @@ class MediaLibraryController extends Controller
             'images' => ['required', 'array', 'min:1'],
             'images.*' => ['required', 'image', 'max:10240'],
         ]);
+
+        $uploaded = [];
 
         foreach ($request->file('images', []) as $file) {
             $name = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
@@ -200,6 +202,16 @@ class MediaLibraryController extends Controller
                 'folder_id' => $data['folder_id'] ?? null,
                 'alt_text' => $name,
                 'updated_at' => now(),
+            ]);
+
+            $uploaded[] = $this->mediaPayload($media->fresh());
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => '圖片已上傳',
+                'items' => $uploaded,
             ]);
         }
 

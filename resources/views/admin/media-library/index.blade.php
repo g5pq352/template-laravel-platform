@@ -23,10 +23,7 @@
 @endsection
 
 @section('content')
-<div
-    class="media-library-page"
-    data-current-folder-id="{{ $folderId ?? '' }}"
->
+<div class="media-library-page" data-current-folder-id="{{ $folderId ?? '' }}">
     @if(session('status'))
         <div class="alert alert-success">{{ session('status') }}</div>
     @endif
@@ -168,29 +165,30 @@
                             @endphp
                             <article
                                 class="media-card"
-                                draggable="{{ !$trash ? 'true' : 'false' }}"
                                 data-media-id="{{ $media->id }}"
                                 data-current-folder-id="{{ $media->folder_id ?? '' }}"
                                 data-move-url="{{ route('admin.media-library.media.move', $media) }}"
                             >
-                                <button
-                                    class="media-thumb js-open-lightbox"
-                                    type="button"
-                                    data-url="{{ $mediaUrl }}"
-                                    data-title="{{ $media->name }}"
-                                    @disabled(!$isImage)
-                                >
+                                @unless($trash)
+                                    <button class="media-drag-handle" type="button" draggable="true" title="拖曳移動圖片">
+                                        <i class="fas fa-grip-vertical"></i>
+                                    </button>
+                                @endunless
+
+                                <button class="media-thumb js-open-lightbox" type="button" data-url="{{ $mediaUrl }}" data-title="{{ $media->name }}" @disabled(!$isImage)>
                                     @if($isImage)
                                         <img src="{{ $mediaUrl }}" alt="{{ $media->alt_text ?? $media->name }}" loading="lazy">
                                     @else
                                         <i class="fas fa-file"></i>
                                     @endif
                                 </button>
+
                                 <div class="media-info">
                                     <strong title="{{ $media->name }}">{{ $media->name }}</strong>
                                     <span>{{ $media->file_name }}</span>
                                     <span>{{ $media->human_readable_size }}</span>
                                 </div>
+
                                 <div class="media-actions">
                                     @if($trash)
                                         <form method="post" action="{{ route('admin.media-library.media.restore', $media->id) }}">
@@ -296,8 +294,8 @@
 </div>
 
 <div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <form class="modal-content" method="post" enctype="multipart/form-data" action="{{ route('admin.media-library.media.store') }}">
+    <div class="modal-dialog modal-lg">
+        <form class="modal-content js-gallery-upload-form" method="post" enctype="multipart/form-data" action="{{ route('admin.media-library.media.store') }}">
             @csrf
             <input type="hidden" name="folder_id" value="{{ $folderId }}">
             <div class="modal-header">
@@ -305,11 +303,21 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <input class="form-control" type="file" name="images[]" accept="image/*" multiple required>
-                <div class="text-danger text-2 mt-2">支援 jpg、png、gif、webp，單檔上限 10MB</div>
+                <div class="gallery-upload-drop" id="galleryUploadDrop">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <strong>拖曳圖片到這裡，或點擊選擇檔案</strong>
+                    <span>支援 jpg、png、gif、webp，單檔上限 10MB</span>
+                </div>
+                <input class="d-none" id="galleryUploadInput" type="file" accept="image/*" multiple>
+                <div class="gallery-upload-list" id="galleryUploadList"></div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-primary" type="submit">上傳</button>
+                <button class="btn btn-light" id="galleryUploadClear" type="button" disabled>
+                    <i class="fas fa-times-circle"></i> 清空
+                </button>
+                <button class="btn btn-primary" id="galleryUploadStart" type="button" disabled>
+                    <i class="fas fa-upload"></i> 開始上傳
+                </button>
             </div>
         </form>
     </div>
@@ -345,8 +353,10 @@
     .media-folder-actions{display:flex;gap:6px;align-items:center}
     .media-folder-actions form{margin:0}
     .media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
-    .media-card{border:1px solid #e2e2e2;border-radius:5px;background:#fff;overflow:hidden;transition:opacity .15s ease, transform .15s ease}
+    .media-card{position:relative;border:1px solid #e2e2e2;border-radius:5px;background:#fff;overflow:hidden;transition:opacity .15s ease, transform .15s ease}
     .media-card.is-dragging{opacity:.45;transform:scale(.98)}
+    .media-drag-handle{position:absolute;top:8px;left:8px;z-index:2;width:28px;height:28px;border:0;border-radius:4px;background:rgba(0,0,0,.62);color:#fff;cursor:grab}
+    .media-drag-handle:active{cursor:grabbing}
     .media-thumb{display:flex;align-items:center;justify-content:center;width:100%;height:145px;background:#f4f4f4;color:#999;text-decoration:none;border:0;padding:0;cursor:zoom-in}
     .media-thumb:disabled{cursor:default}
     .media-thumb img{width:100%;height:100%;object-fit:cover}
@@ -358,6 +368,25 @@
     .media-actions form{margin:0}
     .media-lightbox-modal .modal-body{display:flex;align-items:center;justify-content:center;background:#111;min-height:60vh}
     .media-lightbox-modal img{display:block;max-width:100%;max-height:75vh;object-fit:contain}
+    .gallery-upload-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:190px;padding:32px;border:2px dashed #4a8ef0;border-radius:10px;background:#f9fbff;color:#337ab7;text-align:center;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease}
+    .gallery-upload-drop i{font-size:42px}
+    .gallery-upload-drop strong{font-size:16px;color:#1f5f9d}
+    .gallery-upload-drop span{font-size:13px;color:#777}
+    .gallery-upload-drop.is-drag-over{background:#d9e6ff;border-color:#105ac4;color:#105ac4}
+    .gallery-upload-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:15px}
+    .gallery-upload-item{display:grid;grid-template-columns:64px 1fr auto;gap:10px;align-items:center;border:1px solid #e0e3ea;border-radius:8px;background:#fff;padding:8px}
+    .gallery-upload-preview{width:64px;height:52px;border-radius:6px;background:#f1f1f1;overflow:hidden}
+    .gallery-upload-preview img{width:100%;height:100%;object-fit:cover}
+    .gallery-upload-meta{min-width:0}
+    .gallery-upload-name{font-size:13px;font-weight:600;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .gallery-upload-size{font-size:12px;color:#777}
+    .gallery-upload-status{font-size:12px;color:#777;margin-top:3px}
+    .gallery-upload-status.success{color:#1f9d45}
+    .gallery-upload-status.fail{color:#d2322d}
+    .gallery-upload-progress{height:6px;border-radius:999px;background:#edf0f5;overflow:hidden;margin-top:6px}
+    .gallery-upload-progress span{display:block;width:0%;height:100%;background:#4a8ef0;transition:width .15s ease}
+    .gallery-upload-remove{width:28px;height:28px;border:0;border-radius:4px;background:#d9534f;color:#fff;line-height:1}
+    @media (max-width: 767px){.gallery-upload-list{grid-template-columns:1fr}}
 </style>
 @endpush
 
@@ -368,6 +397,9 @@
         const page = document.querySelector('.media-library-page');
         const currentFolderId = page?.dataset.currentFolderId || '';
         let draggedCard = null;
+        let dragClearTimer = null;
+        let uploadQueue = [];
+        const uploadMaxBytes = 10 * 1024 * 1024;
 
         document.querySelectorAll('.js-copy-url').forEach(function (button) {
             button.addEventListener('click', async function () {
@@ -395,26 +427,36 @@
             lightboxImage.src = '';
         });
 
-        document.querySelectorAll('.media-card[draggable="true"]').forEach(function (card) {
-            card.addEventListener('dragstart', function (event) {
+        document.querySelectorAll('.media-drag-handle').forEach(function (handle) {
+            handle.addEventListener('dragstart', function (event) {
+                const card = handle.closest('.media-card');
+                if (!card) return;
+                clearTimeout(dragClearTimer);
                 draggedCard = card;
                 card.classList.add('is-dragging');
                 event.dataTransfer.effectAllowed = 'move';
                 event.dataTransfer.setData('text/plain', card.dataset.mediaId);
             });
 
-            card.addEventListener('dragend', function () {
-                card.classList.remove('is-dragging');
-                draggedCard = null;
+            handle.addEventListener('dragend', function () {
+                const card = handle.closest('.media-card');
+                card?.classList.remove('is-dragging');
+                dragClearTimer = setTimeout(function () {
+                    draggedCard = null;
+                }, 120);
                 document.querySelectorAll('.is-drag-over').forEach(function (node) {
                     node.classList.remove('is-drag-over');
                 });
+            });
+
+            handle.addEventListener('click', function (event) {
+                event.preventDefault();
             });
         });
 
         document.querySelectorAll('.media-folder-dropzone').forEach(function (dropzone) {
             dropzone.addEventListener('dragover', function (event) {
-                if (!draggedCard) return;
+                if (!draggedCard && !event.dataTransfer.types.includes('text/plain')) return;
                 event.preventDefault();
                 dropzone.classList.add('is-drag-over');
                 event.dataTransfer.dropEffect = 'move';
@@ -425,18 +467,22 @@
             });
 
             dropzone.addEventListener('drop', async function (event) {
-                if (!draggedCard) return;
                 event.preventDefault();
                 dropzone.classList.remove('is-drag-over');
+                clearTimeout(dragClearTimer);
+
+                const mediaId = event.dataTransfer.getData('text/plain');
+                const card = draggedCard || document.querySelector(`.media-card[data-media-id="${mediaId}"]`);
+                if (!card) return;
 
                 const targetFolderId = dropzone.dataset.folderId || '';
-                if ((draggedCard.dataset.currentFolderId || '') === targetFolderId) {
+                if ((card.dataset.currentFolderId || '') === targetFolderId) {
                     window.cmsAlert('圖片已在這個資料夾中', 'info');
                     return;
                 }
 
                 try {
-                    const response = await fetch(draggedCard.dataset.moveUrl, {
+                    const response = await fetch(card.dataset.moveUrl, {
                         method: 'PATCH',
                         headers: {
                             'Content-Type': 'application/json',
@@ -445,20 +491,234 @@
                         },
                         body: JSON.stringify({ folder_id: targetFolderId || null }),
                     });
-
                     const payload = await response.json().catch(() => ({}));
                     if (!response.ok) {
                         throw new Error(payload.message || '圖片移動失敗');
                     }
-
-                    draggedCard.dataset.currentFolderId = targetFolderId;
+                    card.dataset.currentFolderId = targetFolderId;
                     if (currentFolderId !== targetFolderId) {
-                        draggedCard.remove();
+                        card.remove();
                     }
                     window.cmsAlert(payload.message || '圖片已移動', 'success');
                 } catch (error) {
                     window.cmsAlert(error.message || '圖片移動失敗', 'error');
+                } finally {
+                    draggedCard = null;
                 }
+            });
+        });
+
+        const uploadForm = document.querySelector('.js-gallery-upload-form');
+        const uploadDrop = document.getElementById('galleryUploadDrop');
+        const uploadInput = document.getElementById('galleryUploadInput');
+        const uploadList = document.getElementById('galleryUploadList');
+        const uploadStart = document.getElementById('galleryUploadStart');
+        const uploadClear = document.getElementById('galleryUploadClear');
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return `${bytes} B`;
+            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+            return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+        }
+
+        function syncUploadButtons() {
+            const hasPending = uploadQueue.some(item => !item.uploaded && !item.failed && !item.uploading);
+            uploadStart.disabled = !hasPending;
+            uploadClear.disabled = uploadQueue.length === 0 || uploadQueue.some(item => item.uploading);
+        }
+
+        function renderUploadItem(item) {
+            const row = document.createElement('div');
+            row.className = 'gallery-upload-item';
+            row.dataset.uploadId = item.id;
+            row.innerHTML = `
+                <div class="gallery-upload-preview"><img alt=""></div>
+                <div class="gallery-upload-meta">
+                    <div class="gallery-upload-name"></div>
+                    <div class="gallery-upload-size"></div>
+                    <div class="gallery-upload-progress"><span></span></div>
+                    <div class="gallery-upload-status">準備上傳...</div>
+                </div>
+                <button class="gallery-upload-remove" type="button" title="移除">×</button>
+            `;
+
+            row.querySelector('.gallery-upload-name').textContent = item.file.name;
+            row.querySelector('.gallery-upload-size').textContent = formatSize(item.file.size);
+            item.progress = row.querySelector('.gallery-upload-progress span');
+            item.status = row.querySelector('.gallery-upload-status');
+            item.removeButton = row.querySelector('.gallery-upload-remove');
+            item.element = row;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                row.querySelector('img').src = event.target.result;
+            };
+            reader.readAsDataURL(item.file);
+
+            item.removeButton.addEventListener('click', function () {
+                if (item.xhr) {
+                    item.canceled = true;
+                    item.xhr.abort();
+                }
+                uploadQueue = uploadQueue.filter(queueItem => queueItem.id !== item.id);
+                row.remove();
+                syncUploadButtons();
+            });
+
+            uploadList.appendChild(row);
+        }
+
+        function addUploadFiles(files) {
+            Array.from(files).forEach(function (file) {
+                if (!file.type.startsWith('image/')) {
+                    window.cmsAlert(`${file.name} 不是圖片檔`, 'warning');
+                    return;
+                }
+
+                const item = {
+                    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    file,
+                    uploaded: false,
+                    failed: false,
+                    uploading: false,
+                    canceled: false,
+                    xhr: null,
+                };
+
+                renderUploadItem(item);
+                uploadQueue.push(item);
+
+                if (file.size > uploadMaxBytes) {
+                    item.failed = true;
+                    item.status.textContent = '檔案超過 10MB';
+                    item.status.classList.add('fail');
+                    item.progress.style.width = '100%';
+                }
+            });
+            syncUploadButtons();
+        }
+
+        function uploadItem(item, callback) {
+            if (item.uploaded || item.failed || item.uploading) {
+                callback(false);
+                return;
+            }
+
+            const xhr = new XMLHttpRequest();
+            const formData = new FormData();
+            item.xhr = xhr;
+            item.uploading = true;
+            item.status.textContent = '上傳中... 0%';
+            syncUploadButtons();
+
+            formData.append('_token', csrfToken);
+            formData.append('folder_id', uploadForm.querySelector('[name="folder_id"]').value || '');
+            formData.append('images[]', item.file);
+
+            xhr.upload.onprogress = function (event) {
+                if (!event.lengthComputable) return;
+                const percent = Math.round((event.loaded / event.total) * 100);
+                item.progress.style.width = `${percent}%`;
+                item.status.textContent = `上傳中... ${percent}%`;
+            };
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) return;
+                item.uploading = false;
+                item.xhr = null;
+
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    item.uploaded = true;
+                    item.progress.style.width = '100%';
+                    item.status.textContent = '上傳完成';
+                    item.status.classList.remove('fail');
+                    item.status.classList.add('success');
+                    item.removeButton.remove();
+                    callback(true);
+                    return;
+                }
+
+                if (!item.canceled) {
+                    let message = '上傳失敗';
+                    try {
+                        const payload = JSON.parse(xhr.responseText);
+                        message = payload.message || message;
+                    } catch (error) {
+                        message = xhr.status ? `上傳失敗 (${xhr.status})` : '上傳已取消';
+                    }
+                    item.failed = true;
+                    item.status.textContent = message;
+                    item.status.classList.add('fail');
+                }
+                callback(false);
+            };
+
+            xhr.open('POST', uploadForm.action, true);
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+            xhr.send(formData);
+        }
+
+        uploadDrop?.addEventListener('click', function () {
+            uploadInput.click();
+        });
+
+        uploadInput?.addEventListener('change', function () {
+            addUploadFiles(uploadInput.files);
+            uploadInput.value = '';
+        });
+
+        ['dragenter', 'dragover'].forEach(function (eventName) {
+            uploadDrop?.addEventListener(eventName, function (event) {
+                event.preventDefault();
+                uploadDrop.classList.add('is-drag-over');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(function (eventName) {
+            uploadDrop?.addEventListener(eventName, function () {
+                uploadDrop.classList.remove('is-drag-over');
+            });
+        });
+
+        uploadDrop?.addEventListener('drop', function (event) {
+            event.preventDefault();
+            addUploadFiles(event.dataTransfer.files);
+        });
+
+        uploadClear?.addEventListener('click', function () {
+            uploadQueue.forEach(function (item) {
+                if (item.xhr) {
+                    item.canceled = true;
+                    item.xhr.abort();
+                }
+            });
+            uploadQueue = [];
+            uploadList.innerHTML = '';
+            syncUploadButtons();
+        });
+
+        uploadStart?.addEventListener('click', function () {
+            const items = uploadQueue.filter(item => !item.uploaded && !item.failed);
+            if (items.length === 0) return;
+
+            let remaining = items.length;
+            let successCount = 0;
+            uploadStart.disabled = true;
+
+            items.forEach(function (item) {
+                uploadItem(item, function (success) {
+                    if (success) successCount++;
+                    remaining--;
+                    if (remaining === 0) {
+                        syncUploadButtons();
+                        if (successCount > 0) {
+                            window.cmsAlert(`已上傳 ${successCount} 張圖片`, 'success').then(function () {
+                                window.location.reload();
+                            });
+                        }
+                    }
+                });
             });
         });
     });
