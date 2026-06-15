@@ -99,6 +99,7 @@ class DatabaseSeeder extends Seeder
                     ['title' => '產品', 'module_key' => 'products', 'route_name' => 'admin.products.index', 'icon' => 'bx bx-file'],
                     ['title' => '聯絡我們', 'module_key' => 'contact', 'route_name' => 'admin.contact.index', 'icon' => 'bx bx-detail'],
                     ['title' => '全站設定', 'module_key' => 'settings', 'route_name' => 'admin.info.edit', 'icon' => 'bx bx-cog', 'settings' => ['route_params' => ['module' => 'keywordsInfo']]],
+                    ['title' => '圖片庫', 'module_key' => 'media-library', 'route_name' => 'admin.media-library.index', 'icon' => 'bx bx-images'],
                     ['title' => '權限管理', 'module_key' => 'permissions', 'url' => '#', 'icon' => 'bx bx-user-circle'],
                     ['title' => '選單管理', 'module_key' => 'menus', 'route_name' => 'admin.menus.index', 'icon' => 'fa-solid fa-bars'],
                 ] as $index => $menu) {

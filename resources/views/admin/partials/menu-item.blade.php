@@ -13,6 +13,8 @@
         $href = '#';
     } elseif ($menu->module_key === 'settings') {
         $href = route('admin.info.edit', 'keywordsInfo');
+    } elseif ($menu->module_key === 'media-library') {
+        $href = route('admin.media-library.index');
     } elseif ($menu->route_name && \Illuminate\Support\Facades\Route::has($menu->route_name)) {
         $href = route($menu->route_name, $routeParams + $queryParams);
     } elseif ($menu->url) {
@@ -31,6 +33,10 @@
 
         if ($item->module_key === 'settings') {
             return request()->routeIs('admin.settings.*') || (request()->routeIs('admin.info.*') && request()->route('module') === 'keywordsInfo');
+        }
+
+        if ($item->module_key === 'media-library') {
+            return request()->routeIs('admin.media-library.*');
         }
 
         $itemSettings = is_array($item->settings) ? $item->settings : [];

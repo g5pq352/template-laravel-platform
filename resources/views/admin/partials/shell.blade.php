@@ -11,6 +11,7 @@
     $isProducts = request()->routeIs('admin.products.*') || (request()->routeIs('admin.taxonomies.*') && in_array($taxonomy, ['productCate', 'productTag'], true));
     $isContact = request()->routeIs('admin.contact.*');
     $isSettings = request()->routeIs('admin.settings.*') || (request()->routeIs('admin.info.*') && request()->route('module') === 'keywordsInfo');
+    $isMediaLibrary = request()->routeIs('admin.media-library.*');
     $isMenus = request()->routeIs('admin.menus.*');
 
     $menuLocation = request()->query('location', 'backend');
@@ -195,6 +196,13 @@
                                     <a class="nav-link" href="{{ route('admin.info.edit', 'keywordsInfo') }}">
                                         <i class="bx bx-cog" aria-hidden="true"></i>
                                         <span>全站設定</span>
+                                    </a>
+                                </li>
+
+                                <li @class(['nav-active' => $isMediaLibrary])>
+                                    <a class="nav-link" href="{{ route('admin.media-library.index') }}">
+                                        <i class="bx bx-images" aria-hidden="true"></i>
+                                        <span>圖片庫</span>
                                     </a>
                                 </li>
 
