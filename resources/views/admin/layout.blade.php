@@ -78,12 +78,17 @@
         .linked-select-levels.linked-select-levels-inline {
             flex-direction: row;
             align-items: center;
-            gap: 10px;
+            gap: 0;
         }
 
         .linked-select-levels.linked-select-levels-inline .linked-select-control {
-            width: 180px;
+            width: auto;
+            min-width: 58px;
             margin-bottom: 0 !important;
+        }
+
+        .linked-select-levels.linked-select-levels-inline .linked-select-control:first-child {
+            min-width: 180px;
         }
 
         .linked-select-levels .select2-container {
@@ -261,7 +266,9 @@
             }
 
             const select = document.createElement('select');
-            select.className = 'form-control form-control-md linked-select-level linked-select-control' + (inline ? '' : ' mb-2');
+            select.className = inline
+                ? 'form-control select-style-1 me-2 category-filter linked-select-level linked-select-control'
+                : 'form-control form-control-md linked-select-level linked-select-control mb-2';
             select.dataset.parentId = parentId === null ? '' : String(parentId);
 
             const placeholder = document.createElement('option');

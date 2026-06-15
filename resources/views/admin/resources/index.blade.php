@@ -57,7 +57,7 @@
                                 <div class="d-flex align-items-lg-center flex-column flex-lg-row">
                                     @if($filterTreeField)
                                         <label class="ws-nowrap me-3 mb-0">Filter By:</label>
-                                        <div class="linked-select-wrapper cms-filter-linked-taxonomy" data-field="resource_filter" data-placeholder="全部" data-layout="inline" style="min-width: 180px;">
+                                        <div class="linked-select-wrapper cms-filter-linked-taxonomy" data-field="resource_filter" data-placeholder="全部" data-layout="inline">
                                             <input type="hidden" id="resource_filter_term_id" name="term_id" value="{{ $termId }}">
                                             <div class="linked-select-levels" data-input-id="resource_filter_term_id"></div>
                                         </div>
