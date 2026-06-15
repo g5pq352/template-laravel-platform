@@ -1,6 +1,11 @@
 <!doctype html>
 <html lang="zh-Hant-TW" class="@yield('html_class', 'sidebar-left-big-icons')">
 <head>
+    @php
+        $routeName = request()->route()?->getName() ?? '';
+        $loadsFormAssets = \Illuminate\Support\Str::endsWith($routeName, ['.create', '.edit'])
+            || request()->routeIs('admin.info.*', 'admin.contents.create', 'admin.contents.edit');
+    @endphp
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -14,28 +19,21 @@
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/animate/animate.compat.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/font-awesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/boxicons/css/boxicons.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/magnific-popup/magnific-popup.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/bootstrap-datepicker/css/bootstrap-datepicker3.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/jquery-ui/jquery-ui.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/jquery-ui/jquery-ui.theme.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/bootstrap-multiselect/css/bootstrap-multiselect.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/morris/morris.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/datatables/media/css/dataTables.bootstrap5.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/select2/css/select2.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/select2-bootstrap-theme/select2-bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/dropzone/basic.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/dropzone/dropzone.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/bootstrap-markdown/css/bootstrap-markdown.min.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/pnotify/pnotify.custom.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/elusive-icons/css/elusive-icons.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/cms-jquery/cropper/cropper.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('admin-assets/cms-crop/crop.css') }}">
+    @if($loadsFormAssets)
+        <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/magnific-popup/magnific-popup.css') }}">
+        <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/select2/css/select2.css') }}">
+        <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/select2-bootstrap-theme/select2-bootstrap.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('admin-assets/cms-jquery/cropper/cropper.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('admin-assets/cms-crop/crop.css') }}">
+    @endif
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/css/theme.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/css/skins/default.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/css/custom.css') }}">
     <link rel="stylesheet" href="{{ asset('admin-assets/template-style/css/layouts/modern.css') }}">
     <script src="{{ asset('admin-assets/template-style/vendor/modernizr/modernizr.js') }}"></script>
-    <link rel="stylesheet" href="{{ asset('admin-assets/cms-jquery/chosen_v1.8.5/chosen.css') }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <script src="{{ asset('admin-assets/cms-js/sweetalert2@11.js') }}"></script>
 
@@ -130,27 +128,24 @@
 <script src="{{ asset('admin-assets/template-style/vendor/jquery-browser-mobile/jquery.browser.mobile.js') }}"></script>
 <script src="{{ asset('admin-assets/template-style/vendor/popper/umd/popper.min.js') }}"></script>
 <script src="{{ asset('admin-assets/template-style/vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/bootstrap-datepicker/js/bootstrap-datepicker.js') }}"></script>
 <script src="{{ asset('admin-assets/template-style/vendor/common/common.js') }}"></script>
 <script src="{{ asset('admin-assets/template-style/vendor/nanoscroller/nanoscroller.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/magnific-popup/jquery.magnific-popup.js') }}"></script>
 <script src="{{ asset('admin-assets/template-style/vendor/jquery-placeholder/jquery.placeholder.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/jquery-ui/jquery-ui.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/jqueryui-touch-punch/jquery.ui.touch-punch.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/jquery-appear/jquery.appear.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/bootstrap-multiselect/js/bootstrap-multiselect.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/datatables/media/js/jquery.dataTables.min.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/datatables/media/js/dataTables.bootstrap5.min.js') }}"></script>
-<script src="{{ asset('admin-assets/template-style/vendor/select2/js/select2.js') }}"></script>
-<script src="{{ asset('admin-assets/ckeditor/ckeditor.js') }}"></script>
-<script src="{{ asset('admin-assets/cms-jquery/cropper/cropper.min.js') }}"></script>
+@if($loadsFormAssets)
+    <script src="{{ asset('admin-assets/template-style/vendor/magnific-popup/jquery.magnific-popup.js') }}"></script>
+    <script src="{{ asset('admin-assets/template-style/vendor/select2/js/select2.js') }}"></script>
+    <script src="{{ asset('admin-assets/ckeditor/ckeditor.js') }}"></script>
+    <script src="{{ asset('admin-assets/cms-jquery/cropper/cropper.min.js') }}"></script>
+@endif
 <script src="{{ asset('admin-assets/template-style/js/theme.js') }}"></script>
 <script src="{{ asset('admin-assets/template-style/js/custom.js') }}"></script>
 <script src="{{ asset('admin-assets/template-style/js/theme.init.js') }}"></script>
-<script>
-    window.CMS_IMAGE_DEMO_URL = "{{ asset('admin-assets/cms-crop/demo.jpg') }}";
-</script>
-<script src="{{ asset('admin-assets/cms-js/laravel-image-upload-manager.js') }}"></script>
+@if($loadsFormAssets)
+    <script>
+        window.CMS_IMAGE_DEMO_URL = "{{ asset('admin-assets/cms-crop/demo.jpg') }}";
+    </script>
+    <script src="{{ asset('admin-assets/cms-js/laravel-image-upload-manager.js') }}"></script>
+@endif
 <script>
     window.cmsAlert = function (message, icon = 'info', options = {}) {
         return Swal.fire({
