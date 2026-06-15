@@ -73,6 +73,7 @@ class ResourceController extends Controller
             'trashCount' => (clone $this->baseQuery($config, $site?->id, $locale))->onlyTrashed()->count(),
             'sortOptionCount' => $sortOptionCount,
             'taxonomyOptions' => $this->taxonomyOptions($config, $site, $locale),
+            'taxonomyTreesByField' => $this->taxonomyTreesByField($config, $site, $locale),
         ]));
     }
 
@@ -97,6 +98,7 @@ class ResourceController extends Controller
             'mediaByRole' => [],
             'taxonomyOptions' => $taxonomyOptions,
             'taxonomyOptionsByField' => $taxonomyOptionsByField,
+            'taxonomyTreesByField' => $this->taxonomyTreesByField($config, $site, $locale),
             'selectedTermIds' => $selectedTermIds,
             'selectedTermIdsByField' => $selectedTermIdsByField,
         ]));
@@ -143,6 +145,7 @@ class ResourceController extends Controller
             'mediaByRole' => $this->mediaByRoleForItem($item, $config),
             'taxonomyOptions' => $this->taxonomyOptions($config, $site, $locale),
             'taxonomyOptionsByField' => $this->taxonomyOptionsByField($config, $site, $locale),
+            'taxonomyTreesByField' => $this->taxonomyTreesByField($config, $site, $locale),
             'selectedTermIds' => $this->selectedTermIds($item, $config),
             'selectedTermIdsByField' => $this->selectedTermIdsByField($item, $config),
         ]));
@@ -795,6 +798,50 @@ class ResourceController extends Controller
         return $options;
     }
 
+    private function taxonomyTreesByField(array $config, $site, ?string $locale): array
+    {
+        if (!$site) {
+            return [];
+        }
+
+        $trees = [];
+        foreach ($this->taxonomyFields($config) as $field) {
+            if (($field['type'] ?? null) !== 'linked_taxonomy') {
+                continue;
+            }
+
+            $taxonomyCode = $this->fieldTaxonomyCode($field, $config);
+            if ($taxonomyCode === '') {
+                continue;
+            }
+
+            $taxonomy = $this->treeService->taxonomyForSite(
+                $site,
+                $taxonomyCode,
+                $this->taxonomyLabel($taxonomyCode, $config),
+                true
+            );
+
+            $terms = TaxonomyTerm::query()
+                ->where('taxonomy_id', $taxonomy->id)
+                ->where('locale', $locale ?? $site->default_locale)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'parent_id', 'name']);
+
+            $trees[$field['name']] = $terms
+                ->map(fn (TaxonomyTerm $term) => [
+                    'id' => $term->id,
+                    'parent_id' => $term->parent_id,
+                    'label' => $term->name,
+                ])
+                ->values()
+                ->all();
+        }
+
+        return $trees;
+    }
+
     private function selectedTermIds(?Model $item, array $config): array
     {
         if (!$item || empty($config['category_relation'])) {
@@ -848,6 +895,10 @@ class ResourceController extends Controller
             ->values();
 
         if ($options->isEmpty()) {
+            return $selected;
+        }
+
+        if (($primaryField['type'] ?? null) === 'linked_taxonomy' && !$requestedTermId) {
             return $selected;
         }
 

@@ -156,6 +156,164 @@
         return result.isConfirmed;
     };
 
+    window.initCmsLinkedTaxonomy = function (fieldId, selectedId, options = {}) {
+        const input = document.getElementById(fieldId);
+        const treeScript = document.getElementById(fieldId + '_tree');
+        const wrapper = input?.closest('.linked-select-wrapper');
+        const levels = wrapper?.querySelector('.linked-select-levels');
+
+        if (!input || !treeScript || !levels) {
+            return;
+        }
+
+        const requireLeaf = options.requireLeaf !== false;
+        const submitOnChange = options.submitOnChange === true;
+
+        let terms = [];
+        try {
+            terms = JSON.parse(treeScript.textContent || '[]');
+        } catch (error) {
+            terms = [];
+        }
+
+        const byParent = new Map();
+        const byId = new Map();
+        terms.forEach(function (term) {
+            const id = Number(term.id);
+            const parentId = term.parent_id === null || term.parent_id === undefined || term.parent_id === '' ? null : Number(term.parent_id);
+            const normalized = {id, parent_id: parentId, label: term.label};
+            byId.set(id, normalized);
+            const key = parentId === null ? 'root' : String(parentId);
+            if (!byParent.has(key)) {
+                byParent.set(key, []);
+            }
+            byParent.get(key).push(normalized);
+        });
+
+        function selectedPath(id) {
+            const path = [];
+            let current = byId.get(Number(id));
+
+            while (current) {
+                path.unshift(current.id);
+                current = current.parent_id === null ? null : byId.get(current.parent_id);
+            }
+
+            return path;
+        }
+
+        function childrenOf(parentId) {
+            return byParent.get(parentId === null ? 'root' : String(parentId)) || [];
+        }
+
+        function enhanceSelect(select) {
+            if (!window.jQuery || !jQuery.fn.select2) {
+                return;
+            }
+
+            jQuery(select).select2({
+                theme: 'bootstrap',
+                width: '100%',
+            });
+        }
+
+        function submitOwnerForm() {
+            if (!submitOnChange) {
+                return;
+            }
+
+            input.closest('form')?.submit();
+        }
+
+        function renderLevel(parentId, selectedValue) {
+            const children = childrenOf(parentId);
+            if (children.length === 0) {
+                return null;
+            }
+
+            const select = document.createElement('select');
+            select.className = 'form-control form-control-md mb-2 linked-select-level';
+            select.dataset.parentId = parentId === null ? '' : String(parentId);
+
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = wrapper.dataset.placeholder || '-- 請選擇 --';
+            select.appendChild(placeholder);
+
+            children.forEach(function (term) {
+                const option = document.createElement('option');
+                option.value = String(term.id);
+                option.textContent = term.label;
+                option.selected = Number(selectedValue) === term.id;
+                select.appendChild(option);
+            });
+
+            select.addEventListener('change', function () {
+                let next = select.nextElementSibling;
+                while (next) {
+                    const remove = next;
+                    next = next.nextElementSibling;
+                    if (window.jQuery && jQuery.fn.select2 && jQuery(remove).data('select2')) {
+                        jQuery(remove).select2('destroy');
+                    }
+                    remove.remove();
+                }
+
+                if (select.value) {
+                    const childSelect = renderLevel(Number(select.value), null);
+                    if (childSelect) {
+                        input.value = requireLeaf ? '' : select.value;
+                        levels.appendChild(childSelect);
+                        enhanceSelect(childSelect);
+                    } else {
+                        input.value = select.value;
+                    }
+                } else {
+                    input.value = '';
+                }
+
+                submitOwnerForm();
+            });
+
+            return select;
+        }
+
+        levels.innerHTML = '';
+
+        const path = selectedId ? selectedPath(selectedId) : [];
+        let parentId = null;
+        let lastSelected = null;
+
+        if (path.length === 0) {
+            const firstLevel = renderLevel(null, null);
+            if (firstLevel) {
+                levels.appendChild(firstLevel);
+                enhanceSelect(firstLevel);
+            }
+            input.value = '';
+            return;
+        }
+
+        path.forEach(function (id) {
+            const select = renderLevel(parentId, id);
+            if (select) {
+                levels.appendChild(select);
+                enhanceSelect(select);
+            }
+
+            parentId = id;
+            lastSelected = id;
+        });
+
+        const nextLevel = renderLevel(parentId, null);
+        if (nextLevel) {
+            levels.appendChild(nextLevel);
+            enhanceSelect(nextLevel);
+        }
+
+        input.value = nextLevel && requireLeaf ? '' : (lastSelected || '');
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
         document.querySelectorAll('[data-confirm]').forEach(function (item) {
             item.addEventListener('submit', async function (event) {

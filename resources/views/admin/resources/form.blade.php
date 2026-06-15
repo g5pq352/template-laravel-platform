@@ -66,6 +66,7 @@
                                                 'mediaByRole' => $mediaByRole ?? [],
                                                 'taxonomyOptions' => $taxonomyOptions,
                                                 'taxonomyOptionsByField' => $taxonomyOptionsByField ?? [],
+                                                'taxonomyTreesByField' => $taxonomyTreesByField ?? [],
                                                 'selectedTermIds' => old('term_ids', $selectedTermIds),
                                                 'selectedTermIdsByField' => $selectedTermIdsByField ?? [],
                                             ])

@@ -7,6 +7,7 @@
     $fieldId = 'field_' . str_replace(['[', ']'], '_', $name);
     $mediaByRole = $mediaByRole ?? [];
     $fieldTaxonomyOptions = $taxonomyOptionsByField[$name] ?? $taxonomyOptions ?? [];
+    $fieldTaxonomyTree = $taxonomyTreesByField[$name] ?? [];
     $fieldSelectedTermIds = old($name, $selectedTermIdsByField[$name] ?? ($name === 'term_ids' ? ($selectedTermIds ?? []) : []));
     $taxonomyInputName = $name . (!empty($field['multiple']) ? '[]' : '');
     $fieldLabel = $field['label'];
@@ -50,14 +51,24 @@
                 @endforeach
             </select>
         @elseif($type === 'linked_taxonomy')
-            <div class="linked-select-wrapper" data-field="{{ $name }}" data-category="{{ $field['category'] ?? '' }}">
-                <select id="{{ $fieldId }}" class="form-control form-control-md mb-2 linked-select-level" name="{{ $taxonomyInputName }}" data-plugin-selectTwo {{ !empty($field['multiple']) ? 'multiple' : '' }} {{ $disabled }}>
-                    <option value="">-- 請選擇 --</option>
-                    @foreach($fieldTaxonomyOptions as $option)
-                        <option value="{{ $option['id'] }}" @selected(in_array($option['id'], array_map('intval', (array) $fieldSelectedTermIds), true))>{{ $option['label'] }}</option>
-                    @endforeach
-                </select>
+            @php
+                $selectedLinkedId = collect((array) $fieldSelectedTermIds)->filter()->last();
+            @endphp
+            <div
+                class="linked-select-wrapper"
+                data-field="{{ $name }}"
+                data-category="{{ $field['category'] ?? '' }}"
+                data-placeholder="-- 請選擇 --"
+            >
+                <input type="hidden" id="{{ $fieldId }}" name="{{ $taxonomyInputName }}" value="{{ $selectedLinkedId }}">
+                <div class="linked-select-levels" data-input-id="{{ $fieldId }}"></div>
             </div>
+            <script type="application/json" id="{{ $fieldId }}_tree">@json($fieldTaxonomyTree)</script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    window.initCmsLinkedTaxonomy?.(@json($fieldId), @json((int) $selectedLinkedId));
+                });
+            </script>
         @elseif($type === 'checkbox')
             <div class="checkbox-custom checkbox-default pt-2">
                 <input id="{{ $name }}" type="checkbox" name="{{ $name }}" value="1" @checked((bool) $value)>

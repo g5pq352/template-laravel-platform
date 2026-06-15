@@ -7,6 +7,7 @@
         'contact' => '聯絡我們',
         default => $resourceConfig['label'],
     };
+    $filterTreeField = array_key_first($taxonomyTreesByField ?? []);
 @endphp
 
 @section('title', $resourceConfig['label'])
@@ -51,7 +52,22 @@
 
                             <div class="col-8 col-lg-auto ms-auto ml-auto mb-3 mb-lg-0">
                                 <div class="d-flex align-items-lg-center flex-column flex-lg-row">
-                                    @if(!empty($taxonomyOptions))
+                                    @if($filterTreeField)
+                                        <label class="ws-nowrap me-3 mb-0">Filter By:</label>
+                                        <div class="linked-select-wrapper cms-filter-linked-taxonomy" data-field="resource_filter" data-placeholder="全部" style="min-width: 180px;">
+                                            <input type="hidden" id="resource_filter_term_id" name="term_id" value="{{ $termId }}">
+                                            <div class="linked-select-levels" data-input-id="resource_filter_term_id"></div>
+                                        </div>
+                                        <script type="application/json" id="resource_filter_term_id_tree">@json($taxonomyTreesByField[$filterTreeField] ?? [])</script>
+                                        <script>
+                                            document.addEventListener('DOMContentLoaded', function () {
+                                                window.initCmsLinkedTaxonomy?.('resource_filter_term_id', @json((int) $termId), {
+                                                    requireLeaf: false,
+                                                    submitOnChange: true
+                                                });
+                                            });
+                                        </script>
+                                    @elseif(!empty($taxonomyOptions))
                                         <label class="ws-nowrap me-3 mb-0">Filter By:</label>
                                         <select name="term_id" id="select1" class="form-control select-style-1 filter-by" onchange="this.form.submit()">
                                             <option value="">全部</option>
