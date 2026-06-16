@@ -258,8 +258,12 @@
                                 </div>
                             @endunless
                         @empty
-                            <div class="text-center text-muted cms-table-empty d-flex align-items-center justify-content-center">
-                                No images available
+                            <div class="media-empty-state">
+                                <i class="fas fa-images"></i>
+                                <strong>{{ $trash ? '垃圾桶目前是空的' : '這個資料夾還沒有圖片' }}</strong>
+                                @unless($trash)
+                                    <span>可以點上方「上傳圖片」新增圖片。</span>
+                                @endunless
                             </div>
                         @endforelse
                     </div>
@@ -368,6 +372,10 @@
     .media-info span{font-size:12px;color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .media-actions{display:flex;gap:6px;align-items:center;padding:10px 12px;border-top:1px solid #eee;background:#fafafa}
     .media-actions form{margin:0}
+    .media-empty-state{grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:180px;border:1px dashed #d8dde6;border-radius:6px;background:#fbfcfe;color:#777;text-align:center}
+    .media-empty-state i{font-size:32px;color:#b8c1cc}
+    .media-empty-state strong{font-size:15px;color:#555}
+    .media-empty-state span{font-size:13px;color:#888}
     .media-lightbox-modal .modal-body{display:flex;align-items:center;justify-content:center;background:#111;min-height:60vh}
     .media-lightbox-modal img{display:block;max-width:100%;max-height:75vh;object-fit:contain}
     .gallery-upload-drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:190px;padding:32px;border:2px dashed #4a8ef0;border-radius:10px;background:#f9fbff;color:#337ab7;text-align:center;cursor:pointer;transition:background .2s ease,border-color .2s ease,color .2s ease}
