@@ -165,6 +165,7 @@
                             @endphp
                             <article
                                 class="media-card"
+                                draggable="{{ !$trash ? 'true' : 'false' }}"
                                 data-media-id="{{ $media->id }}"
                                 data-current-folder-id="{{ $media->folder_id ?? '' }}"
                                 data-move-url="{{ route('admin.media-library.media.move', $media) }}"
@@ -177,7 +178,7 @@
 
                                 <button class="media-thumb js-open-lightbox" type="button" data-url="{{ $mediaUrl }}" data-title="{{ $media->name }}" @disabled(!$isImage)>
                                     @if($isImage)
-                                        <img src="{{ $mediaUrl }}" alt="{{ $media->alt_text ?? $media->name }}" loading="lazy">
+                                        <img src="{{ $mediaUrl }}" alt="{{ $media->alt_text ?? $media->name }}" loading="lazy" draggable="false">
                                     @else
                                         <i class="fas fa-file"></i>
                                     @endif
@@ -353,13 +354,14 @@
     .media-folder-actions{display:flex;gap:6px;align-items:center}
     .media-folder-actions form{margin:0}
     .media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
-    .media-card{position:relative;border:1px solid #e2e2e2;border-radius:5px;background:#fff;overflow:hidden;transition:opacity .15s ease, transform .15s ease}
+    .media-card{position:relative;border:1px solid #e2e2e2;border-radius:5px;background:#fff;overflow:hidden;transition:opacity .15s ease, transform .15s ease;cursor:grab}
+    .media-card:active{cursor:grabbing}
     .media-card.is-dragging{opacity:.45;transform:scale(.98)}
     .media-drag-handle{position:absolute;top:8px;left:8px;z-index:2;width:28px;height:28px;border:0;border-radius:4px;background:rgba(0,0,0,.62);color:#fff;cursor:grab}
     .media-drag-handle:active{cursor:grabbing}
     .media-thumb{display:flex;align-items:center;justify-content:center;width:100%;height:145px;background:#f4f4f4;color:#999;text-decoration:none;border:0;padding:0;cursor:zoom-in}
     .media-thumb:disabled{cursor:default}
-    .media-thumb img{width:100%;height:100%;object-fit:cover}
+    .media-thumb img{width:100%;height:100%;object-fit:cover;pointer-events:none}
     .media-thumb i{font-size:42px}
     .media-info{display:flex;flex-direction:column;gap:3px;padding:10px 12px;min-height:76px}
     .media-info strong{font-size:13px;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -427,20 +429,22 @@
             lightboxImage.src = '';
         });
 
-        document.querySelectorAll('.media-drag-handle').forEach(function (handle) {
-            handle.addEventListener('dragstart', function (event) {
-                const card = handle.closest('.media-card');
-                if (!card) return;
+        document.querySelectorAll('.media-card[draggable="true"]').forEach(function (card) {
+            card.addEventListener('dragstart', function (event) {
+                if (event.target.closest('.media-actions')) {
+                    event.preventDefault();
+                    return;
+                }
                 clearTimeout(dragClearTimer);
                 draggedCard = card;
                 card.classList.add('is-dragging');
                 event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('application/x-media-id', card.dataset.mediaId);
                 event.dataTransfer.setData('text/plain', card.dataset.mediaId);
             });
 
-            handle.addEventListener('dragend', function () {
-                const card = handle.closest('.media-card');
-                card?.classList.remove('is-dragging');
+            card.addEventListener('dragend', function () {
+                card.classList.remove('is-dragging');
                 dragClearTimer = setTimeout(function () {
                     draggedCard = null;
                 }, 120);
@@ -449,29 +453,32 @@
                 });
             });
 
-            handle.addEventListener('click', function (event) {
+            card.querySelector('.media-drag-handle')?.addEventListener('click', function (event) {
                 event.preventDefault();
             });
         });
 
         document.querySelectorAll('.media-folder-dropzone').forEach(function (dropzone) {
             dropzone.addEventListener('dragover', function (event) {
-                if (!draggedCard && !event.dataTransfer.types.includes('text/plain')) return;
+                if (!draggedCard && !Array.from(event.dataTransfer.types || []).includes('text/plain')) return;
                 event.preventDefault();
+                event.stopPropagation();
                 dropzone.classList.add('is-drag-over');
                 event.dataTransfer.dropEffect = 'move';
-            });
+            }, true);
 
-            dropzone.addEventListener('dragleave', function () {
+            dropzone.addEventListener('dragleave', function (event) {
+                if (dropzone.contains(event.relatedTarget)) return;
                 dropzone.classList.remove('is-drag-over');
-            });
+            }, true);
 
             dropzone.addEventListener('drop', async function (event) {
                 event.preventDefault();
+                event.stopPropagation();
                 dropzone.classList.remove('is-drag-over');
                 clearTimeout(dragClearTimer);
 
-                const mediaId = event.dataTransfer.getData('text/plain');
+                const mediaId = event.dataTransfer.getData('application/x-media-id') || event.dataTransfer.getData('text/plain');
                 const card = draggedCard || document.querySelector(`.media-card[data-media-id="${mediaId}"]`);
                 if (!card) return;
 
@@ -505,7 +512,7 @@
                 } finally {
                     draggedCard = null;
                 }
-            });
+            }, true);
         });
 
         const uploadForm = document.querySelector('.js-gallery-upload-form');
