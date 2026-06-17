@@ -7,6 +7,7 @@ return [
     'module' => $module,
     'moduleName' => '產品分類',
     'strategy' => 'taxonomy',
+    'hasLanguage' => true,
     'pageType' => 'taxonomy',
     'taxonomy' => $module,
     'taxonomy_label' => '產品分類',

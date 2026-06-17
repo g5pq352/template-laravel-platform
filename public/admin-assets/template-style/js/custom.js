@@ -17,14 +17,27 @@ var initializeDropzone = function() {
 
         console.log("初始化 Dropzone - ID:", $el.attr('id'), "Type:", fileType, "MaxSize:", maxSize);
 
+        var uploadUrl = 'upload_dropzone.php';
+        var csrfToken = $('meta[name="csrf-token"]').attr('content') || '';
+        var headers = {};
+        if (window.location.pathname.indexOf('/admin/') === 0) {
+            uploadUrl = window.location.pathname.replace(/\/edit\/?$/, '/dropzone');
+            if (window.location.search) {
+                uploadUrl += window.location.search;
+            }
+            headers['X-CSRF-TOKEN'] = csrfToken;
+            headers['X-Requested-With'] = 'XMLHttpRequest';
+        }
+
         // 2. 初始化 Dropzone
         $el.dropzone({
-            url: 'upload_dropzone.php',
+            url: uploadUrl,
             paramName: "file",
             maxFilesize: maxSize,
             acceptedFiles: acceptedFiles,
             addRemoveLinks: true,
             dictDefaultMessage: "",
+            headers: headers,
 
             sending: function(file, xhr, formData) {
                 formData.append("d_id", dId);
@@ -40,6 +53,7 @@ var initializeDropzone = function() {
                 if (response.status === 'success') {
                     console.log("上傳成功:", response);
                     if (file.previewElement) file.previewElement.classList.add("dz-success");
+                    $('.draggable_image[data-config="' + fileType + '"]').attr('data-dropzone-uploaded', '1');
                 } else {
                     console.error("上傳失敗:", response.message);
                     file.status = Dropzone.ERROR;

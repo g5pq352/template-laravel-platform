@@ -15,6 +15,7 @@ class CmsMenu extends Model
         'site_id',
         'parent_id',
         'location',
+        'locale',
         'title',
         'type',
         'url',

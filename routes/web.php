@@ -32,7 +32,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/media-library/folders', [MediaLibraryController::class, 'storeFolder'])->name('media-library.folders.store');
         Route::put('/media-library/folders/{folder}', [MediaLibraryController::class, 'updateFolder'])->name('media-library.folders.update');
         Route::delete('/media-library/folders/{folder}', [MediaLibraryController::class, 'destroyFolder'])->name('media-library.folders.destroy');
+        Route::post('/media-library/folders/{id}/restore', [MediaLibraryController::class, 'restoreFolder'])->name('media-library.folders.restore');
+        Route::delete('/media-library/folders/{id}/force-delete', [MediaLibraryController::class, 'forceDeleteFolder'])->name('media-library.folders.force-delete');
         Route::post('/media-library/media', [MediaLibraryController::class, 'storeMedia'])->name('media-library.media.store');
+        Route::post('/media-library/media/bulk-action', [MediaLibraryController::class, 'bulkAction'])->name('media-library.media.bulk-action');
         Route::put('/media-library/media/{media}', [MediaLibraryController::class, 'updateMedia'])->name('media-library.media.update');
         Route::patch('/media-library/media/{media}/move', [MediaLibraryController::class, 'moveMedia'])->name('media-library.media.move');
         Route::delete('/media-library/media/{media}', [MediaLibraryController::class, 'destroyMedia'])->name('media-library.media.destroy');
@@ -44,6 +47,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/home-display/{content}/sort', [HomeDisplayController::class, 'sort'])->name('home-display.sort');
         Route::get('/info/{module}', [InfoModuleController::class, 'edit'])->name('info.edit');
         Route::put('/info/{module}', [InfoModuleController::class, 'update'])->name('info.update');
+        Route::post('/info/{module}/copy-language', [InfoModuleController::class, 'copyLanguage'])->name('info.copy-language');
 
         Route::get('/menus', [CmsMenuController::class, 'index'])->name('menus.index');
         Route::get('/menus/create', [CmsMenuController::class, 'create'])->name('menus.create');
@@ -72,6 +76,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get("/{$resource}/{id}/edit", [ResourceController::class, 'edit'])->defaults('resource', $resource)->name("{$resource}.edit");
             Route::put("/{$resource}/{id}", [ResourceController::class, 'update'])->defaults('resource', $resource)->name("{$resource}.update");
             Route::delete("/{$resource}/{id}", [ResourceController::class, 'destroy'])->defaults('resource', $resource)->name("{$resource}.destroy");
+            Route::post("/{$resource}/{id}/dropzone", [ResourceController::class, 'dropzoneUpload'])->defaults('resource', $resource)->name("{$resource}.dropzone");
             Route::post("/{$resource}/{id}/restore", [ResourceController::class, 'restore'])->defaults('resource', $resource)->name("{$resource}.restore");
             Route::delete("/{$resource}/{id}/force-delete", [ResourceController::class, 'forceDelete'])->defaults('resource', $resource)->name("{$resource}.force-delete");
             Route::post("/{$resource}/{id}/toggle-status", [ResourceController::class, 'toggleStatus'])->defaults('resource', $resource)->name("{$resource}.toggle-status");

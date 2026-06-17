@@ -12,6 +12,7 @@ return [
     'moduleName' => '產品管理',
     'model' => Product::class,
     'strategy' => 'product',
+    'hasLanguage' => true,
 
     'listPage' => [
         'imageFileType' => 'productCover',

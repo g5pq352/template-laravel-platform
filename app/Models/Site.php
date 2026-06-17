@@ -40,6 +40,11 @@ class Site extends Model implements HasMedia
         return $this->hasMany(SiteDomain::class);
     }
 
+    public function languages(): HasMany
+    {
+        return $this->hasMany(Language::class)->orderByDesc('is_default')->orderBy('sort_order')->orderBy('id');
+    }
+
     public function contentTypes(): HasMany
     {
         return $this->hasMany(ContentType::class);

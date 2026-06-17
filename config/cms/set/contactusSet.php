@@ -8,6 +8,7 @@ return [
     'moduleName' => '聯絡我們管理',
     'model' => ContactMessage::class,
     'strategy' => 'contact',
+    'hasLanguage' => true,
     'show_add_button' => false,
     'readonly' => true,
 

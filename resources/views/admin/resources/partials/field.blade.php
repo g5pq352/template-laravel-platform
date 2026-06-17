@@ -18,10 +18,13 @@
     $labelClass = in_array($type, $wideTypes, true)
         ? 'col-lg-2 control-label text-lg-end pt-2'
         : 'col-lg-5 col-xl-2 control-label text-lg-end ' . (in_array($type, ['textarea', 'editor'], true) ? 'pt-2 mt-1' : 'mb-0');
+    $rowClass = $type === 'image_upload'
+        ? 'form-group row pb-3'
+        : 'form-group row cms-form-row ' . (in_array($type, ['textarea', 'editor', 'file_upload', 'dynamic_fields'], true) ? '' : 'align-items-center');
 @endphp
 
 @if(!($field['hide_on_create'] ?? false) || $item)
-<div class="form-group row cms-form-row {{ in_array($type, ['textarea', 'editor', 'image_upload', 'file_upload', 'dynamic_fields'], true) ? '' : 'align-items-center' }}">
+<div class="{{ $rowClass }}">
     <label class="{{ $labelClass }}">
         {{ $fieldLabel }}
         @if($required)<span class="required">*</span>@endif
@@ -34,7 +37,7 @@
             <textarea id="{{ $fieldId }}" class="form-control form-control-modern {{ $type === 'editor' ? 'tiny' : '' }}" name="{{ $name }}" rows="{{ $field['rows'] ?? 5 }}" cols="{{ $field['cols'] ?? 80 }}" {{ $readonly }} {{ $required }}>{{ $value }}</textarea>
         @elseif($type === 'select')
             <select class="form-control form-control-md" name="{{ $name }}" {{ $required }} {{ $disabled }}>
-                @foreach($statusOptions as $optionValue => $optionLabel)
+                @foreach(($field['options'] ?? $statusOptions) as $optionValue => $optionLabel)
                     <option value="{{ $optionValue }}" @selected((string) $value === (string) $optionValue)>{{ $optionLabel }}</option>
                 @endforeach
             </select>
@@ -107,7 +110,7 @@
                     OH: {{ $height }}
                 };
             </script>
-            <div class="draggable_image" id="draggable_{{ $name }}" data-config="{{ $fileType }}" data-prefix="{{ $name }}" data-multiple="{{ !empty($field['multiple']) ? '1' : '0' }}" data-max-size="{{ $maxSize }}">
+            <div class="draggable_image" id="draggable_{{ $name }}" data-config="{{ $fileType }}" data-prefix="{{ $name }}" data-multiple="{{ !empty($field['multiple']) ? '1' : '0' }}" data-max-size="{{ $maxSize }}" data-required="{{ !empty($field['required']) ? '1' : '0' }}" data-field-label="{{ $fieldLabel }}">
                 @foreach($existingImages as $image)
                     <div class="image-manage-item" id="img_item_{{ $image['id'] }}" data-id="{{ $image['id'] }}">
                         <div style="display: flex; align-items: flex-start; margin-bottom: 10px; position:relative;">
@@ -124,14 +127,14 @@
                                     <input type="file" id="{{ $name }}_ex_{{ $image['id'] }}" name="{{ $name }}_update[{{ $image['id'] }}]" class="hidden-file-input" style="display:none;" accept="image/*">
                                     <div style="display: flex; align-items: center; gap: 8px;">
                                         <button type="button" class="trigger-crop-btn btn btn-default" data-target="{{ $name }}_ex_{{ $image['id'] }}">選擇檔案</button>
-                                        @if(!empty($field['multiple']))
+                                        @if(!empty($field['multiple']) && $loop->index > 0)
                                             <a href="javascript:void(0)" onclick="deleteImageItem({{ $image['id'] }})" style="color:#666; font-size:16px;" title="刪除圖片"><i class="fas fa-trash-alt"></i></a>
                                         @endif
                                     </div>
-                                    <a href="javascript:void(0)" id="remove_btn_ex_{{ $image['id'] }}" style="color:red; text-decoration:none; font-size:14px; margin-top:5px; display:inline-block;"><i class="fas fa-times-circle"></i> 刪除</a>
+                                    <a href="javascript:void(0)" id="remove_btn_ex_{{ $image['id'] }}" style="color:red; text-decoration:none; font-size:14px; margin-top:5px; display:inline-block;"><i class="fas fa-times-circle"></i> 移除</a>
                                 </div>
                                 <div style="margin-top: 5px;">
-                                    <p id="fileNameDisplayex_{{ $image['id'] }}" class="file-name-display" style="display:none; font-size:0.9rem; color:#555;margin: 0;">未選擇任何檔案</p>
+                                    <p id="fileNameDisplayex_{{ $image['id'] }}" class="file-name-display" style="display:none; font-size:0.9rem; color:#555;margin: 0;">未選擇</p>
                                     <p id="uploadStatusex_{{ $image['id'] }}" class="status-msg" style="font-size:0.9rem; color:blue; margin:5px 0 0 0;"></p>
                                     <input type="hidden" id="imageUrlex_{{ $image['id'] }}" class="url-input">
                                 </div>
@@ -160,7 +163,7 @@
             @if(!empty($field['multiple']))
                 <div style="margin-top:20px;">
                     <a href="javascript:void(0)" onclick="addDynamicField('draggable_{{ $name }}', '{{ $name }}', '{{ $fileType }}')" class="table_data" style="text-decoration:none;">
-                        <img src="{{ asset('admin-assets/template-style/img/icons/add.png') }}" width="16" height="16" border="0" style="vertical-align:middle;" onerror="this.style.display='none';"> 新增圖片
+                        <img src="{{ asset('admin-assets/image/add.png') }}" width="16" height="16" border="0" style="vertical-align:middle;"> 新增圖片
                     </a>
                 </div>
             @endif
@@ -178,33 +181,35 @@
             @once
                 <div id="delete_file_container"></div>
                 <template id="universalRowTemplate">
-                    <div class="image-manage-item" data-id="">
-                        <div style="display: flex; align-items: flex-start; margin-bottom: 10px; position:relative;">
-                            <div class="drag-handle" style="margin-right:10px; cursor:move; color:#ccc; display:none;" title="拖曳排序"><i class="fas fa-grip-vertical"></i></div>
-                            <div style="width:100px; height:100px; margin-right: 15px; border: 1px solid #ddd; overflow: hidden;">
-                                <img class="preview-img cms-image-lightbox-trigger" src="{{ asset('admin-assets/cms-crop/demo.jpg') }}" data-cms-placeholder="1" title="預覽圖" style="width:100%; height:100%; object-fit: cover; cursor: pointer;">
-                            </div>
-                            <div>
-                                <div style="display: flex; flex-direction: column; gap: 5px;">
-                                    <input type="file" class="hidden-file-input" accept="image/*" style="display:none;">
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        <button type="button" class="trigger-crop-btn btn btn-default">選擇檔案</button>
-                                        <a href="javascript:void(0)" class="trash-btn" style="color:#666; font-size:16px;" title="刪除整列"><i class="fas fa-trash-alt"></i></a>
+                    <tr>
+                        <td>
+                            <div style="display: flex; align-items: flex-start; margin-bottom: 10px; position:relative;">
+                                <div class="drag-handle" style="margin-right:10px; cursor:move; color:#ccc; display:none;" title="排序"><i class="fas fa-grip-vertical"></i></div>
+                                <div style="width:100px; height:100px; margin-right: 15px; border: 1px solid #ddd; overflow: hidden;">
+                                    <img class="preview-img" src="{{ asset('admin-assets/cms-crop/demo.jpg') }}" style="width:100%; height:100%; object-fit: cover;">
+                                </div>
+                                <div>
+                                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                                        <input type="file" class="hidden-file-input" accept="image/*" style="display:none;">
+                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                            <button type="button" class="trigger-crop-btn btn btn-default">選擇檔案</button>
+                                            <a href="javascript:void(0)" class="trash-btn" style="color:#666; font-size:16px;" title="刪除整列"><i class="fas fa-trash-alt"></i></a>
+                                        </div>
+                                        <a href="javascript:void(0)" class="delete-row-btn" style="color:red; text-decoration:none; font-size:14px; margin-top:5px; display:none;"><i class="fas fa-times-circle"></i> 移除</a>
                                     </div>
-                                    <a href="javascript:void(0)" class="delete-row-btn" style="color:red; text-decoration:none; font-size:14px; margin-top:5px; display:none;"><i class="fas fa-times-circle"></i> 刪除</a>
-                                </div>
-                                <div style="margin-top: 5px;">
-                                    <p class="file-name-display" style="display:none; font-size:0.9rem; color:#555;margin: 0;">未選擇任何檔案</p>
-                                    <p class="status-msg" style="font-size:0.9rem; color:blue; margin:5px 0 0 0;"></p>
+                                    <div style="margin-top: 5px;">
+                                        <p class="file-name-display" style="display:none; font-size:0.9rem; color:#555;margin: 0;">未選擇</p>
+                                        <p class="status-msg" style="font-size:0.9rem; color:blue; margin:5px 0 0 0;"></p>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div style="display: flex; align-items: center; margin-top: 5px;">
-                            <span class="table_data" style="flex-shrink:0;">圖片說明：</span>
-                            <input type="text" class="title-input table_data" style="width: 300px; padding: 4px; border: 1px solid #ccc;">
-                        </div>
-                        <input type="hidden" class="url-input">
-                    </div>
+                            <div style="display: flex; align-items: center; margin-top: 5px;">
+                                <span class="table_data" style="flex-shrink:0;">圖片說明：</span>
+                                <input type="text" class="title-input table_data" style="width: 300px; padding: 4px; border: 1px solid #ccc;">
+                            </div>
+                            <input type="hidden" class="url-input">
+                        </td>
+                    </tr>
                 </template>
 
                 <div id="cropModal" class="modal-crop">
@@ -238,5 +243,24 @@
         @endif
     </div>
 </div>
+@if($type === 'image_upload' && !empty($field['dropzone']) && $item)
+    @php
+        $postMaxSize = $field['postMaxSize'] ?? data_get($field, 'size.postMaxSize', 8);
+    @endphp
+    <div class="form-group row pb-3">
+        <label class="col-lg-2 control-label text-lg-end pt-2">上傳圖片</label>
+        <div class="col-lg-9">
+            <div id="dropzone-{{ $name }}" class="dropzone-modern dz-square" data-d-id="{{ $item->id }}" data-file-type="{{ $fileType }}" data-max-size="{{ $maxSize }}">
+                <span class="dropzone-upload-message text-center">
+                    <i class="bx bxs-cloud-upload"></i>
+                    <b class="text-color-primary">Drag/Upload</b> your image here.
+                </span>
+            </div>
+            <div class="col-lg-7 mt-2">
+                <label class="error mb-0">* 每次上傳之檔案大小總計請勿超過{{ $postMaxSize }}MB。</label>
+            </div>
+        </div>
+    </div>
+@endif
 @endif
 

@@ -3,6 +3,7 @@
 return [
     'moduleName' => '全站設定',
     'slug' => 'info-keywords',
+    'hasLanguage' => true,
 
     'detailPage' => [
         [

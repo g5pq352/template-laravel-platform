@@ -3,6 +3,7 @@
 return [
     'moduleName' => '燈箱設定',
     'slug' => 'info-pop',
+    'hasLanguage' => true,
 
     'detailPage' => [
         [

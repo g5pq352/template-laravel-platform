@@ -2,6 +2,7 @@
 
 @php
     $formAction = $menu ? '編輯' : '新增';
+    $languageParams = ($languageEnabled ?? false) ? ($languageParams ?? array_filter(['language' => $languageContext['slug'] ?? null])) : [];
 @endphp
 
 @section('title', 'CMS 選單管理' . $formAction)
@@ -13,7 +14,7 @@
 @endsection
 
 @section('content')
-<form class="ecommerce-form" method="post" action="{{ $menu ? route('admin.menus.update', $menu) : route('admin.menus.store') }}">
+<form class="ecommerce-form" method="post" action="{{ $menu ? route('admin.menus.update', [$menu, ...$languageParams]) : route('admin.menus.store', $languageParams) }}">
     @csrf
     @if($menu)
         @method('PUT')
@@ -22,7 +23,7 @@
     <div class="row">
         <div class="col">
             <div class="cms-page-actions">
-                <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.menus.index', array_filter(['location' => old('location', $values['location'] ?? $location), 'parent_id' => old('parent_id', $values['parent_id'] ?? null)])) }}">
+                <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.menus.index', array_filter(['location' => old('location', $values['location'] ?? $location), 'parent_id' => old('parent_id', $values['parent_id'] ?? null), ...$languageParams])) }}">
                     <i class="bx bx-left-arrow-alt me-1"></i> 返回
                 </a>
                 <button class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" type="submit" id="submitBtn">
@@ -44,6 +45,8 @@
                         <div class="col-lg-3-5 col-xl-4-5">
                             <div class="tab-content">
                                 <div class="tab-pane fade show active" id="basic" role="tabpanel" aria-labelledby="tab-basic">
+                                    <input type="hidden" name="locale" value="{{ old('locale', $values['locale'] ?? $site?->default_locale) }}">
+
                                     <div class="form-group row cms-form-row">
                                         <label class="col-lg-5 col-xl-2 control-label text-lg-end pt-2">選單位置</label>
                                         <div class="col-lg-7 col-xl-7">

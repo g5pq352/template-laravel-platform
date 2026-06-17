@@ -118,7 +118,11 @@ class CmsSetDefaults
                 foreach ($section['fields'] ?? [] as $index => $field) {
                     $field = self::normalizeField($field, $config);
 
-                    if (($field['type'] ?? null) === 'select' && in_array(($field['maps_to'] ?? $field['name'] ?? null), ['status', 'is_active'], true)) {
+                    if (
+                        ($field['type'] ?? null) === 'select'
+                        && empty($field['options'])
+                        && in_array(($field['maps_to'] ?? $field['name'] ?? null), ['status', 'is_active'], true)
+                    ) {
                         $field['options'] = $config['status_options'] ?? [];
                     }
 

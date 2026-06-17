@@ -86,7 +86,10 @@
                     <ul class="list-unstyled mb-2">
                         <li class="divider"></li>
                         <li>
-                            <a role="menuitem" tabindex="-1" href="{{ route('admin.info.edit', 'keywordsInfo') }}"><i class="bx bx-cog"></i>全站設定</a>
+                            <a role="menuitem" tabindex="-1" href="{{ route('admin.languageType.index') }}"><i class="bx bx-globe"></i>語系管理</a>
+                        </li>
+                        <li>
+                            <a role="menuitem" tabindex="-1" href="{{ route('admin.languagePack.index') }}"><i class="bx bx-message-square-detail"></i>語言包管理</a>
                         </li>
                         <li>
                             <form method="post" action="{{ route('admin.logout') }}">

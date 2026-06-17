@@ -89,12 +89,19 @@
     foreach ($children as $child) {
         $isActive = $isActive || $matchesMenu($child);
     }
+
+    $iconClass = trim((string) $menu->icon);
+    $iconClass = str_replace(
+        ['fa-solid', 'fa-regular', 'fa-brands'],
+        ['fas', 'far', 'fab'],
+        $iconClass
+    );
 @endphp
 
 <li @class(['nav-parent' => $children->isNotEmpty(), 'nav-expanded' => $children->isNotEmpty() && $isActive, 'nav-active' => $isActive])>
     <a class="nav-link" href="{{ $children->isNotEmpty() ? '#' : $href }}" @if($children->isEmpty() && $menu->target === '_blank') target="_blank" rel="noopener" @endif>
-        @if($menu->icon)
-            <i class="{{ $menu->icon }}" aria-hidden="true"></i>
+        @if($iconClass !== '')
+            <i class="{{ $iconClass }}" aria-hidden="true"></i>
         @endif
         <span>{{ $menuTitle }}</span>
     </a>

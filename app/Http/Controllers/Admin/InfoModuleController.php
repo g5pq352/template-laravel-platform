@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Content;
 use App\Models\ContentType;
 use App\Support\AdminContext;
+use App\Support\AdminLanguage;
 use App\Support\CmsSetLoader;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class InfoModuleController extends Controller
@@ -21,8 +25,11 @@ class InfoModuleController extends Controller
         $config = $this->moduleConfig($module);
         $site = $context->site();
         abort_unless($site, 404);
+        $languageContext = AdminLanguage::context($site, request());
+        $languageEnabled = AdminLanguage::enabledFor($config);
+        $locale = $languageEnabled ? $languageContext['locale'] : $site->default_locale;
 
-        [$content, $translation] = $this->ensureInfoContent($site->id, $site->default_locale, $module, $config);
+        [$content, $translation] = $this->ensureInfoContent($site->id, $locale, $module, $config);
 
         return view('admin.info.form', [
             'admin' => $context->user(),
@@ -38,6 +45,9 @@ class InfoModuleController extends Controller
             'statusOptions' => $config['status_options'] ?? [],
             'taxonomyOptions' => [],
             'selectedTermIds' => [],
+            'languageContext' => $languageContext,
+            'languageEnabled' => $languageEnabled,
+            'languageParams' => $languageEnabled ? ['language' => $languageContext['slug']] : [],
         ]);
     }
 
@@ -46,8 +56,11 @@ class InfoModuleController extends Controller
         $config = $this->moduleConfig($module);
         $site = $context->site();
         abort_unless($site, 404);
+        $languageContext = AdminLanguage::context($site, $request);
+        $languageEnabled = AdminLanguage::enabledFor($config);
+        $locale = $languageEnabled ? $languageContext['locale'] : $site->default_locale;
 
-        [$content, $translation] = $this->ensureInfoContent($site->id, $site->default_locale, $module, $config);
+        [$content, $translation] = $this->ensureInfoContent($site->id, $locale, $module, $config);
         $data = $this->validatedData($request, $config);
 
         DB::transaction(function () use ($request, $site, $content, $translation, $config, $data): void {
@@ -80,7 +93,63 @@ class InfoModuleController extends Controller
             $this->syncMediaUploads($request, $content, $config, $site->id);
         });
 
-        return redirect()->route('admin.info.edit', $module)->with('status', "{$config['label']}已更新。");
+        return redirect()->route('admin.info.edit', [$module, ...($languageEnabled ? ['language' => $languageContext['slug']] : [])])->with('status', "{$config['label']}已更新。");
+    }
+
+    public function copyLanguage(AdminContext $context, Request $request, string $module): JsonResponse
+    {
+        $config = $this->moduleConfig($module);
+        $site = $context->site();
+        abort_unless($site, 404);
+
+        $languageContext = AdminLanguage::context($site, $request);
+        $languageEnabled = AdminLanguage::enabledFor($config);
+        abort_unless($languageEnabled, 422, '此模組不支援語系複製');
+
+        $data = $request->validate([
+            'target_language' => ['required', 'string', 'max:40'],
+            'overwrite' => ['nullable', 'boolean'],
+        ]);
+
+        $targetLanguage = AdminLanguage::activeLanguages($site)
+            ->first(fn ($language) => in_array($data['target_language'], [$language->slug, $language->locale], true));
+
+        abort_unless($targetLanguage && $targetLanguage->locale !== $languageContext['locale'], 422, '請選擇不同的目標語系');
+
+        [$content, $source] = $this->ensureInfoContent($site->id, $languageContext['locale'], $module, $config);
+        $target = $content->translations()->withTrashed()->where('locale', $targetLanguage->locale)->first();
+
+        if ($target && empty($data['overwrite'])) {
+            return response()->json([
+                'ok' => false,
+                'message' => "目標語系 ({$targetLanguage->name}) 已存在資料，請勾選「覆蓋已存在的資料」後重試",
+                'needs_overwrite' => true,
+            ], 409);
+        }
+
+        DB::transaction(function () use ($content, $source, $target, $targetLanguage): void {
+            if ($target?->trashed()) {
+                $target->restore();
+            }
+
+            $target = $target ?: $content->translations()->make(['locale' => $targetLanguage->locale]);
+            $target->fill([
+                'title' => $source->title,
+                'slug' => $source->slug,
+                'summary' => $source->summary,
+                'body' => $source->body,
+                'seo_title' => $source->seo_title,
+                'seo_description' => $source->seo_description,
+                'custom_fields' => $this->duplicateDynamicFiles($source->custom_fields ?? [], (int) $content->site_id),
+            ]);
+            $target->save();
+        });
+
+        return response()->json([
+            'ok' => true,
+            'message' => "資料已複製到 {$targetLanguage->name}",
+            'redirect_url' => route('admin.info.edit', [$module, 'language' => $targetLanguage->slug]),
+        ]);
     }
 
     private function moduleConfig(string $module): array
@@ -335,5 +404,56 @@ class InfoModuleController extends Controller
         $size = @getimagesize($path);
 
         return $size ? [(int) $size[0], (int) $size[1]] : [null, null];
+    }
+
+    private function duplicateDynamicFiles(array $customFields, int $siteId): array
+    {
+        $duplicated = $customFields;
+
+        $walker = function (&$value) use (&$walker, $siteId): void {
+            if (!is_array($value)) {
+                return;
+            }
+
+            if (!empty($value['path']) && is_string($value['path'])) {
+                $disk = (string) ($value['disk'] ?? 'public');
+                $value['path'] = $this->copyStoredFile($disk, $value['path'], "sites/{$siteId}/info/dynamic");
+                $value['disk'] = $disk;
+
+                if ($disk === 'public') {
+                    $value['url'] = Storage::disk('public')->url($value['path']);
+                }
+            }
+
+            foreach ($value as &$child) {
+                $walker($child);
+            }
+        };
+
+        $walker($duplicated);
+
+        return $duplicated;
+    }
+
+    private function copyStoredFile(string $disk, string $path, ?string $targetDirectory = null): string
+    {
+        if ($path === '' || !Storage::disk($disk)->exists($path)) {
+            throw ValidationException::withMessages([
+                'copy' => "找不到要複製的檔案：{$path}",
+            ]);
+        }
+
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        $directory = trim($targetDirectory ?: pathinfo($path, PATHINFO_DIRNAME), '.\\/');
+        $filename = Str::uuid()->toString() . ($extension ? ".{$extension}" : '');
+        $newPath = ($directory !== '' ? "{$directory}/" : '') . $filename;
+
+        if (!Storage::disk($disk)->copy($path, $newPath)) {
+            throw ValidationException::withMessages([
+                'copy' => "檔案複製失敗：{$path}",
+            ]);
+        }
+
+        return $newPath;
     }
 }

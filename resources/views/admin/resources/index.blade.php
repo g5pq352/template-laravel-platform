@@ -11,6 +11,7 @@
     $visibleColumns = collect($resourceConfig['list_columns'])
         ->reject(fn ($column) => ($trash ?? false) && (($column['type'] ?? null) === 'sort'))
         ->values();
+    $languageParams = ($languageEnabled ?? false) ? array_filter(['language' => $languageContext['slug'] ?? null]) : [];
 @endphp
 
 @section('title', $resourceConfig['label'])
@@ -27,21 +28,37 @@
         <div class="row align-items-center mb-3">
             <div class="col-12 col-lg-auto mb-3 mb-lg-0">
                 @if($resourceConfig['show_add_button'] ?? true)
-                    <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route("admin.{$resource}.create", array_filter(['term_id' => $termId])) }}">
+                    <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route("admin.{$resource}.create", array_filter(['term_id' => $termId, ...$languageParams])) }}">
                         <i class="fas fa-plus-circle"></i> 新增
                     </a>
                 @endif
 
                 @if($trash ?? false)
-                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route("admin.{$resource}.index") }}">
+                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route("admin.{$resource}.index", $languageParams) }}">
                         <i class="fas fa-list"></i> 返回列表
                     </a>
-                @else
-                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route("admin.{$resource}.index", ['trash' => 1]) }}">
+                @elseif(($trashCount ?? 0) > 0)
+                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route("admin.{$resource}.index", ['trash' => 1, ...$languageParams]) }}">
                         <i class="fas fa-trash-alt"></i> 垃圾桶 ({{ $trashCount ?? 0 }})
                     </a>
                 @endif
             </div>
+
+            @if(($languageEnabled ?? false) && ($languageContext['languages'] ?? collect())->count() > 1)
+                <div class="col-12 col-lg-auto ms-auto mb-3 mb-lg-0">
+                    <ul class="nav nav-pills nav-pills-primary justify-content-lg-end">
+                        @foreach($languageContext['languages'] as $language)
+                            <li class="nav-item">
+                                <a @class(['nav-link py-1 px-3', 'active' => ($languageContext['slug'] ?? null) === $language->slug])
+                                   href="{{ route("admin.{$resource}.index", array_merge(request()->except(['page', 'language', 'trash']), ['language' => $language->slug])) }}">
+                                    {{ $language->name }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
         </div>
 
         <div class="card card-modern">
@@ -49,6 +66,9 @@
                 <div class="datatables-header-footer-wrapper dataTables_wrapper mt-2">
                     <div class="datatable-header">
                         <form method="get" action="{{ route("admin.{$resource}.index") }}" class="row align-items-center mb-3">
+                            @if($languageEnabled ?? false)
+                                <input type="hidden" name="language" value="{{ $languageContext['slug'] ?? '' }}">
+                            @endif
                             @if($trash ?? false)
                                 <input type="hidden" name="trash" value="1">
                             @endif
@@ -131,22 +151,22 @@
 
                                     @if($trash ?? false)
                                         <td>
-                                            <form method="post" action="{{ route("admin.{$resource}.restore", $item->id) }}" class="js-resource-restore-form">
+                                            <form method="post" action="{{ route("admin.{$resource}.restore", [$item->id, ...$languageParams]) }}" class="js-resource-restore-form">
                                                 @csrf
                                                 <button class="btn btn-success" type="submit" title="還原"><i class="fas fa-undo"></i></button>
                                             </form>
                                         </td>
                                         <td>
-                                            <form method="post" action="{{ route("admin.{$resource}.force-delete", $item->id) }}" class="js-resource-force-delete-form">
+                                            <form method="post" action="{{ route("admin.{$resource}.force-delete", [$item->id, ...$languageParams]) }}" class="js-resource-force-delete-form">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-danger" type="submit" title="永久刪除"><i class="fas fa-trash-alt"></i></button>
                                             </form>
                                         </td>
                                     @else
-                                        <td><a class="btn btn-info" href="{{ route("admin.{$resource}.edit", $item) }}" title="編輯"><i class="fas fa-edit"></i></a></td>
+                                        <td><a class="btn btn-info" href="{{ route("admin.{$resource}.edit", [$item->id, ...$languageParams]) }}" title="編輯"><i class="fas fa-edit"></i></a></td>
                                         <td>
-                                            <form method="post" action="{{ route("admin.{$resource}.destroy", $item) }}" class="js-resource-delete-form">
+                                            <form method="post" action="{{ route("admin.{$resource}.destroy", [$item->id, ...$languageParams]) }}" class="js-resource-delete-form">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-danger" type="submit" title="刪除"><i class="fas fa-trash-alt"></i></button>
@@ -175,13 +195,20 @@
                                                 <option value="force_delete">批次永久刪除</option>
                                             @else
                                                 <option value="delete">批次移至垃圾桶</option>
-                                                @if(($resourceConfig['strategy'] ?? null) !== 'contact')
-                                                    <option value="clone">批次複製</option>
+                                                @if(!in_array(($resourceConfig['strategy'] ?? null), ['contact', 'language', 'language_pack'], true))
+                                                    <option value="clone_local">複製資料</option>
+                                                    @if(($languageEnabled ?? false) && ($languageContext['languages'] ?? collect())->count() > 1)
+                                                        <option value="clone">複製到語系</option>
+                                                    @endif
                                                 @endif
                                             @endif
                                         </select>
-                                        <select class="form-control select-style-1 bulk-action-lang d-none" name="target_lang" style="min-width: 140px;">
+                                        <select class="form-control select-style-1 bulk-action-lang d-none" name="target_lang" style="min-width: 170px;">
                                             <option value="">選擇語系...</option>
+                                            @foreach(($languageContext['languages'] ?? collect()) as $language)
+                                                @continue(($languageContext['slug'] ?? null) === $language->slug)
+                                                <option value="{{ $language->slug }}">{{ $language->name }}</option>
+                                            @endforeach
                                         </select>
                                         <a href="javascript:void(0);" class="bulk-action-apply btn btn-light btn-px-4 py-3 border font-weight-semibold text-color-dark text-3" style="min-width: 90px;">執行</a>
                                     </div>
@@ -217,16 +244,19 @@
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrfToken,
                 },
                 body: JSON.stringify(payload || {}),
             });
-
-            if (!response.ok) {
-                throw new Error('Request failed');
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || response.redirected) {
+                const error = new Error(data.message || '操作失敗');
+                error.data = data;
+                throw error;
             }
 
-            return response.json();
+            return data;
         }
 
         async function deleteJson(url, payload = {}) {
@@ -235,16 +265,19 @@
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrfToken,
                 },
                 body: JSON.stringify(payload),
             });
-
-            if (!response.ok) {
-                throw new Error('Request failed');
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || response.redirected) {
+                const error = new Error(data.message || '操作失敗');
+                error.data = data;
+                throw error;
             }
 
-            return response.json();
+            return data;
         }
 
         function redirectAfterResourceAction(data) {
@@ -252,7 +285,6 @@
                 window.location.href = data.redirect_url;
                 return;
             }
-
             window.location.reload();
         }
 
@@ -261,7 +293,6 @@
             select.addEventListener('change', async function () {
                 const previousValue = select.dataset.previousValue;
                 select.disabled = true;
-
                 try {
                     await postJson(select.dataset.url, {
                         sort_order: select.value,
@@ -281,11 +312,13 @@
         document.querySelectorAll('.js-row-pin').forEach(function (button) {
             button.addEventListener('click', async function () {
                 button.disabled = true;
-
                 try {
-                    const data = await postJson(button.dataset.url);
+                    const data = await postJson(button.dataset.url, {
+                        term_id: button.dataset.termId || document.getElementById('resource_filter_term_id')?.value || document.querySelector('select[name="term_id"]')?.value || null
+                    });
                     button.classList.toggle('btn-warning', data.is_pinned);
                     button.classList.toggle('btn-default', !data.is_pinned);
+                    window.location.reload();
                     button.title = data.is_pinned ? '取消置頂' : '置頂';
                 } catch (error) {
                     console.error(error);
@@ -314,71 +347,60 @@
         document.querySelectorAll('.js-resource-delete-form').forEach(function (form) {
             form.addEventListener('submit', async function (event) {
                 event.preventDefault();
-
-                if (!await cmsConfirm('確定要移至垃圾桶嗎？')) {
-                    return;
-                }
-
-                try {
-                    redirectAfterResourceAction(await deleteJson(form.action));
-                } catch (error) {
-                    console.error(error);
-                }
+                if (!await cmsConfirm('確定刪除這筆資料？資料會移到垃圾桶。')) return;
+                try { redirectAfterResourceAction(await deleteJson(form.action)); } catch (error) { console.error(error); }
             });
         });
 
         document.querySelectorAll('.js-resource-force-delete-form').forEach(function (form) {
             form.addEventListener('submit', async function (event) {
                 event.preventDefault();
-
-                if (!await cmsConfirm('確定要永久刪除嗎？此操作無法復原。', {
+                if (!await cmsConfirm('確定永久刪除這筆資料？此動作無法復原。', {
                     confirmButtonText: '永久刪除',
                     confirmButtonColor: '#dc3545',
-                })) {
-                    return;
-                }
-
-                try {
-                    redirectAfterResourceAction(await deleteJson(form.action));
-                } catch (error) {
-                    console.error(error);
-                }
+                })) return;
+                try { redirectAfterResourceAction(await deleteJson(form.action)); } catch (error) { console.error(error); }
             });
         });
 
         document.querySelectorAll('.js-resource-restore-form').forEach(function (form) {
             form.addEventListener('submit', async function (event) {
                 event.preventDefault();
-
-                try {
-                    redirectAfterResourceAction(await postJson(form.action));
-                } catch (error) {
-                    console.error(error);
-                }
+                try { redirectAfterResourceAction(await postJson(form.action)); } catch (error) { console.error(error); }
             });
         });
 
+        const bulkAction = document.querySelector('.bulk-action');
+        const bulkLang = document.querySelector('.bulk-action-lang');
+        bulkAction?.addEventListener('change', function () {
+            bulkLang?.classList.toggle('d-none', bulkAction.value !== 'clone');
+        });
+
         document.querySelector('.bulk-action-apply')?.addEventListener('click', async function () {
-            const action = document.querySelector('.bulk-action')?.value;
+            const action = bulkAction?.value;
             const ids = [...document.querySelectorAll('input[name="selected[]"]:checked')].map((checkbox) => checkbox.value);
-            if (!action || ids.length === 0) {
-                return;
+            if (!action || ids.length === 0) return;
+
+            const payload = { action, ids };
+            if (action === 'clone') {
+                payload.target_language = bulkLang?.value || '';
+                if (!payload.target_language) {
+                    await Swal.fire('提醒', '請先選擇目標語系', 'warning');
+                    return;
+                }
             }
 
             if (['delete', 'force_delete'].includes(action)) {
-                const confirmed = await cmsConfirm('確定要執行這個批次操作嗎？');
+                const confirmed = await cmsConfirm('確定執行批次刪除？');
                 if (!confirmed) return;
             }
 
             try {
-                const data = await postJson(@json(route("admin.{$resource}.bulk-action")), { action, ids });
-                if (data.redirect_url) {
-                    window.location.href = data.redirect_url;
-                    return;
-                }
-                window.location.reload();
+                const data = await postJson(@json(route("admin.{$resource}.bulk-action", $languageParams)), payload);
+                redirectAfterResourceAction(data);
             } catch (error) {
                 console.error(error);
+                await Swal.fire('錯誤', error?.data?.message || error.message || '操作失敗', 'error');
             }
         });
     });

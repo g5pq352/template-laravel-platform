@@ -1,9 +1,23 @@
 @php
     $dynamicRows = collect(is_array($value) ? $value : [])->values();
     $dynamicFields = $field['fields'] ?? [];
+
+    $dynamicFieldUploadMeta = function (array $subField): array {
+        $sizeConfig = $subField['size'] ?? [];
+        $firstSize = collect($sizeConfig)->first(fn ($size) => is_array($size) && isset($size['w'], $size['h'])) ?? ['w' => 800, 'h' => 600];
+        $maxSize = (int) ($subField['maxSize'] ?? data_get($sizeConfig, 'maxSize', 2));
+
+        return [
+            'fileType' => $subField['fileType'] ?? $subField['file_type'] ?? $subField['name'],
+            'width' => (int) ($firstSize['w'] ?? 800),
+            'height' => (int) ($firstSize['h'] ?? 600),
+            'maxSize' => $maxSize,
+            'dimensionText' => !empty($firstSize['w']) && !empty($firstSize['h']) ? "{$firstSize['w']}x{$firstSize['h']}px" : null,
+        ];
+    };
 @endphp
 
-<div class="cms-dynamic-fields" data-dynamic-wrapper data-field-name="{{ $name }}">
+<div class="cms-dynamic-fields" data-dynamic-wrapper data-field-name="{{ $name }}" data-required="{{ !empty($field['required']) ? '1' : '0' }}" data-field-label="{{ $field['label'] ?? $name }}">
     <div class="dynamic-fields-container" data-dynamic-container>
         @foreach($dynamicRows as $rowIndex => $row)
             <div class="dynamic-field-group" data-dynamic-row draggable="true">
@@ -34,85 +48,23 @@
                                     $inputName = "{$name}[{$rowIndex}][{$subName}]";
                                     $required = !empty($subField['required']);
                                     $label = $subField['label'] ?? $subName;
-                                    $sizeConfig = $subField['size'] ?? [];
-                                    $maxSize = $subField['maxSize'] ?? data_get($sizeConfig, 'maxSize');
-                                    $firstSize = collect($sizeConfig)->first(fn ($size) => is_array($size) && isset($size['w'], $size['h']));
-                                    $dimensionText = $firstSize ? "{$firstSize['w']}x{$firstSize['h']}px" : null;
                                     $fileInfo = is_array($subValue) ? $subValue : null;
-                                    $inputId = 'df_' . md5($inputName . $subName);
+                                    $meta = $dynamicFieldUploadMeta($subField);
                                     $format = $subField['format'] ?? '';
                                 @endphp
 
-                                <div class="dynamic-subfield {{ in_array($subType, ['image', 'file'], true) ? 'dynamic-subfield-media' : '' }}">
-                                    <label class="dynamic-subfield-label">
-                                        {{ $label }}
-                                        @if($required)<span class="required">*</span>@endif
-                                    </label>
-
-                                    @if($subType === 'textarea')
-                                        <textarea class="form-control" name="{{ $inputName }}" rows="{{ $subField['rows'] ?? 4 }}" @if($required) required @endif>{{ is_array($subValue) ? '' : $subValue }}</textarea>
-                                    @elseif($subType === 'select')
-                                        <select class="form-control" name="{{ $inputName }}" @if($required) required @endif>
-                                            <option value="">請選擇</option>
-                                            @foreach($subField['options'] ?? [] as $option)
-                                                @php
-                                                    $optionValue = is_array($option) ? ($option['value'] ?? '') : $option;
-                                                    $optionLabel = is_array($option) ? ($option['label'] ?? $optionValue) : $option;
-                                                @endphp
-                                                <option value="{{ $optionValue }}" @selected((string) $subValue === (string) $optionValue)>{{ $optionLabel }}</option>
-                                            @endforeach
-                                        </select>
-                                    @elseif($subType === 'image')
-                                        <div class="dynamic-image-line">
-                                            <div class="dynamic-image-preview">
-                                                @if($fileInfo && !empty($fileInfo['url']))
-                                                    <a href="{{ $fileInfo['url'] }}" class="fancyboxImg" target="_blank">
-                                                        <img src="{{ $fileInfo['url'] }}" alt="">
-                                                    </a>
-                                                    <input type="hidden" name="{{ $inputName }}[_existing]" value="{{ base64_encode(json_encode($fileInfo, JSON_UNESCAPED_UNICODE)) }}">
-                                                @else
-                                                    <img src="{{ asset('admin-assets/cms-crop/demo.jpg') }}" alt="">
-                                                @endif
-                                            </div>
-                                            <div class="dynamic-file-controls">
-                                                <input id="{{ $inputId }}" class="dynamic-hidden-file" type="file" name="{{ $inputName }}" accept="image/*" @if($required && !$fileInfo) required @endif>
-                                                <button type="button" class="btn btn-default dynamic-trigger-file">選擇檔案</button>
-                                                <span class="dynamic-file-name">{{ $fileInfo['original_name'] ?? '未選擇任何檔案' }}</span>
-                                            </div>
-                                        </div>
-                                        <div class="dynamic-media-title">
-                                            <span>圖片說明：</span>
-                                            <input type="text" name="{{ $inputName }}[_title]" value="{{ $fileInfo['title'] ?? $fileInfo['alt_text'] ?? '' }}">
-                                        </div>
-                                        @if($dimensionText || $maxSize || !empty($subField['note']))
-                                            <label class="error dynamic-note">
-                                                * @if($dimensionText)建議尺寸：{{ $dimensionText }} @endif
-                                                @if($maxSize)(大小限制 {{ $maxSize }}MB)@endif
-                                                {!! !empty($subField['note']) ? ' ' . $subField['note'] : '' !!}
-                                            </label>
-                                        @endif
-                                    @elseif($subType === 'file')
-                                        <div class="dynamic-file-row">
-                                            @if($fileInfo && !empty($fileInfo['url']))
-                                                <a href="{{ $fileInfo['url'] }}" target="_blank" class="dynamic-existing-file">{{ $fileInfo['original_name'] ?? '已上傳檔案' }}</a>
-                                                <input type="hidden" name="{{ $inputName }}[_existing]" value="{{ base64_encode(json_encode($fileInfo, JSON_UNESCAPED_UNICODE)) }}">
-                                            @endif
-                                            <input id="{{ $inputId }}" class="dynamic-hidden-file" type="file" name="{{ $inputName }}" accept="{{ $format }}" @if($required && !$fileInfo) required @endif>
-                                            <button type="button" class="btn btn-default dynamic-trigger-file">選擇檔案</button>
-                                            <span class="dynamic-file-name">{{ $fileInfo['original_name'] ?? '未選擇任何檔案' }}</span>
-                                            <input class="dynamic-file-title" type="text" name="{{ $inputName }}[_title]" value="{{ $fileInfo['title'] ?? '' }}" placeholder="檔案說明">
-                                        </div>
-                                        @if($format || $maxSize || !empty($subField['note']))
-                                            <label class="error dynamic-note">
-                                                * @if($format)支援格式：{{ str_replace('.', '', $format) }} @endif
-                                                @if($maxSize)(大小限制 {{ $maxSize }}MB)@endif
-                                                {!! !empty($subField['note']) ? ' ' . $subField['note'] : '' !!}
-                                            </label>
-                                        @endif
-                                    @else
-                                        <input class="form-control" type="{{ $subType === 'number' ? 'number' : 'text' }}" name="{{ $inputName }}" value="{{ is_array($subValue) ? '' : $subValue }}" @if($required) required @endif>
-                                    @endif
-                                </div>
+                                @include('admin.resources.partials.dynamic-subfield', [
+                                    'subType' => $subType,
+                                    'subValue' => $subValue,
+                                    'subField' => $subField,
+                                    'subName' => $subName,
+                                    'inputName' => $inputName,
+                                    'required' => $required,
+                                    'label' => $label,
+                                    'fileInfo' => $fileInfo,
+                                    'meta' => $meta,
+                                    'format' => $format,
+                                ])
                             @endforeach
                         </div>
                     </div>
@@ -127,9 +79,11 @@
         </a>
     </div>
 
-    <div class="dynamic-fields-note">
-        <i class="fas fa-info-circle"></i> 點擊「+」可以新增更多項目
-    </div>
+    @if(!empty($field['note']))
+        <div class="dynamic-fields-note">
+            <i class="fas fa-info-circle"></i> {!! $field['note'] !!}
+        </div>
+    @endif
 
     <template data-dynamic-template>
         <div class="dynamic-field-group" data-dynamic-row draggable="true">
@@ -158,72 +112,22 @@
                                 $inputName = "{$name}[__INDEX__][{$subName}]";
                                 $required = !empty($subField['required']);
                                 $label = $subField['label'] ?? $subName;
-                                $sizeConfig = $subField['size'] ?? [];
-                                $maxSize = $subField['maxSize'] ?? data_get($sizeConfig, 'maxSize');
-                                $firstSize = collect($sizeConfig)->first(fn ($size) => is_array($size) && isset($size['w'], $size['h']));
-                                $dimensionText = $firstSize ? "{$firstSize['w']}x{$firstSize['h']}px" : null;
+                                $meta = $dynamicFieldUploadMeta($subField);
                                 $format = $subField['format'] ?? '';
                             @endphp
 
-                            <div class="dynamic-subfield {{ in_array($subType, ['image', 'file'], true) ? 'dynamic-subfield-media' : '' }}">
-                                <label class="dynamic-subfield-label">
-                                    {{ $label }}
-                                    @if($required)<span class="required">*</span>@endif
-                                </label>
-
-                                @if($subType === 'textarea')
-                                    <textarea class="form-control" name="{{ $inputName }}" rows="{{ $subField['rows'] ?? 4 }}" @if($required) required @endif></textarea>
-                                @elseif($subType === 'select')
-                                    <select class="form-control" name="{{ $inputName }}" @if($required) required @endif>
-                                        <option value="">請選擇</option>
-                                        @foreach($subField['options'] ?? [] as $option)
-                                            @php
-                                                $optionValue = is_array($option) ? ($option['value'] ?? '') : $option;
-                                                $optionLabel = is_array($option) ? ($option['label'] ?? $optionValue) : $option;
-                                            @endphp
-                                            <option value="{{ $optionValue }}">{{ $optionLabel }}</option>
-                                        @endforeach
-                                    </select>
-                                @elseif($subType === 'image')
-                                    <div class="dynamic-image-line">
-                                        <div class="dynamic-image-preview">
-                                            <img src="{{ asset('admin-assets/cms-crop/demo.jpg') }}" alt="">
-                                        </div>
-                                        <div class="dynamic-file-controls">
-                                            <input class="dynamic-hidden-file" type="file" name="{{ $inputName }}" accept="image/*" @if($required) required @endif>
-                                            <button type="button" class="btn btn-default dynamic-trigger-file">選擇檔案</button>
-                                            <span class="dynamic-file-name">未選擇任何檔案</span>
-                                        </div>
-                                    </div>
-                                    <div class="dynamic-media-title">
-                                        <span>圖片說明：</span>
-                                        <input type="text" name="{{ $inputName }}[_title]">
-                                    </div>
-                                    @if($dimensionText || $maxSize || !empty($subField['note']))
-                                        <label class="error dynamic-note">
-                                            * @if($dimensionText)建議尺寸：{{ $dimensionText }} @endif
-                                            @if($maxSize)(大小限制 {{ $maxSize }}MB)@endif
-                                            {!! !empty($subField['note']) ? ' ' . $subField['note'] : '' !!}
-                                        </label>
-                                    @endif
-                                @elseif($subType === 'file')
-                                    <div class="dynamic-file-row">
-                                        <input class="dynamic-hidden-file" type="file" name="{{ $inputName }}" accept="{{ $format }}" @if($required) required @endif>
-                                        <button type="button" class="btn btn-default dynamic-trigger-file">選擇檔案</button>
-                                        <span class="dynamic-file-name">未選擇任何檔案</span>
-                                        <input class="dynamic-file-title" type="text" name="{{ $inputName }}[_title]" placeholder="檔案說明">
-                                    </div>
-                                    @if($format || $maxSize || !empty($subField['note']))
-                                        <label class="error dynamic-note">
-                                            * @if($format)支援格式：{{ str_replace('.', '', $format) }} @endif
-                                            @if($maxSize)(大小限制 {{ $maxSize }}MB)@endif
-                                            {!! !empty($subField['note']) ? ' ' . $subField['note'] : '' !!}
-                                        </label>
-                                    @endif
-                                @else
-                                    <input class="form-control" type="{{ $subType === 'number' ? 'number' : 'text' }}" name="{{ $inputName }}" @if($required) required @endif>
-                                @endif
-                            </div>
+                            @include('admin.resources.partials.dynamic-subfield', [
+                                'subType' => $subType,
+                                'subValue' => null,
+                                'subField' => $subField,
+                                'subName' => $subName,
+                                'inputName' => $inputName,
+                                'required' => $required,
+                                'label' => $label,
+                                'fileInfo' => null,
+                                'meta' => $meta,
+                                'format' => $format,
+                            ])
                         @endforeach
                     </div>
                 </div>
@@ -255,14 +159,7 @@
         .cms-dynamic-fields .form-control{width:100%;height:46px;padding:10px 12px;border:1px solid #d6d6d6;border-radius:3px;background:#fff;color:#333;font-size:13px;box-shadow:none}
         .cms-dynamic-fields select.form-control{padding-right:34px;appearance:auto;-webkit-appearance:menulist;-moz-appearance:auto;background-color:#fff}
         .cms-dynamic-fields textarea.form-control{height:auto;min-height:98px;resize:vertical}
-        .cms-dynamic-fields .dynamic-image-line{display:flex;align-items:flex-start;gap:15px}
-        .cms-dynamic-fields .dynamic-image-preview{width:100px;height:100px;border:1px solid #ddd;background:#000;overflow:hidden;flex-shrink:0}
-        .cms-dynamic-fields .dynamic-image-preview img{width:100%;height:100%;object-fit:cover;display:block}
         .cms-dynamic-fields .dynamic-hidden-file{display:none}
-        .cms-dynamic-fields .dynamic-file-controls{display:flex;align-items:center;gap:12px;min-height:40px;flex-wrap:wrap}
-        .cms-dynamic-fields .dynamic-file-name{color:#333;font-size:13px}
-        .cms-dynamic-fields .dynamic-media-title{display:flex;align-items:center;gap:5px;margin-top:10px;color:#555;font-size:13px}
-        .cms-dynamic-fields .dynamic-media-title input{width:300px;height:32px;border:1px solid #ccc;padding:4px 8px}
         .cms-dynamic-fields .dynamic-file-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
         .cms-dynamic-fields .dynamic-file-title{width:200px;height:46px;border:1px solid #d6d6d6;border-radius:3px;padding:10px 12px}
         .cms-dynamic-fields .dynamic-existing-file{color:#0088cc;font-size:13px}
@@ -279,6 +176,122 @@
         document.addEventListener('DOMContentLoaded', function () {
             function createUid() {
                 return (window.crypto && window.crypto.randomUUID) ? window.crypto.randomUUID() : 'uid_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+            }
+
+            function createUploadKey() {
+                return 'dyn_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+            }
+
+            function showDynamicRequiredMessage(errors) {
+                const html = errors
+                    .map(function (error) {
+                        return '項目 ' + error.index + '：' + error.label;
+                    })
+                    .join('<br>');
+
+                if (window.Swal) {
+                    window.Swal.fire({
+                        icon: 'error',
+                        title: '請填寫必填欄位',
+                        html: '以下欄位為必填，請先完成填寫：<br><br>' + html,
+                        confirmButtonText: '確定',
+                        confirmButtonColor: '#d33'
+                    });
+                }
+            }
+
+            function hasSelectedFile(input) {
+                return !!(input && input.files && input.files.length > 0);
+            }
+
+            function hasExistingDynamicFile(input) {
+                const subfield = input.closest('.dynamic-subfield');
+                return !!subfield?.querySelector('input[name$="[_existing]"]')?.value;
+            }
+
+            function expandRow(row) {
+                if (!row.classList.contains('collapsed')) return;
+
+                row.classList.remove('collapsed');
+                const icon = row.querySelector('[data-dynamic-toggle] i');
+                if (icon) {
+                    icon.className = 'fas fa-chevron-up';
+                }
+            }
+
+            function validateRowsBeforeAdd(container) {
+                const errors = [];
+                let firstInvalid = null;
+
+                container.querySelectorAll('[data-dynamic-row]').forEach(function (row, rowIndex) {
+                    row.querySelectorAll('input[required], textarea[required], select[required]').forEach(function (input) {
+                        if (input.type === 'hidden' || input.disabled || input.validity.valid) return;
+
+                        const subfield = input.closest('.dynamic-subfield');
+                        const label = subfield?.querySelector('.dynamic-subfield-label')?.textContent.replace('*', '').trim() || input.name;
+                        errors.push({ index: rowIndex + 1, label: label });
+                        firstInvalid = firstInvalid || input;
+                    });
+
+                    row.querySelectorAll('input[data-required-upload="1"]').forEach(function (input) {
+                        if (hasSelectedFile(input) || hasExistingDynamicFile(input)) return;
+
+                        const subfield = input.closest('.dynamic-subfield');
+                        const label = input.dataset.fieldLabel || subfield?.querySelector('.dynamic-subfield-label')?.textContent.replace('*', '').trim() || '檔案';
+                        errors.push({ index: rowIndex + 1, label: label });
+                        firstInvalid = firstInvalid || (subfield?.querySelector('.trigger-crop-btn, .dynamic-trigger-file') || input);
+                    });
+                });
+
+                if (errors.length === 0) {
+                    return true;
+                }
+
+                const row = firstInvalid?.closest('[data-dynamic-row]');
+                if (row) {
+                    expandRow(row);
+                }
+
+                showDynamicRequiredMessage(errors);
+
+                return false;
+            }
+
+            function initDynamicImageUploaders(row) {
+                if (!window.LaravelImageUploader) return;
+
+                row.querySelectorAll('input[data-dynamic-image-upload]').forEach(function (input) {
+                    let key = input.dataset.uploadKey || createUploadKey();
+                    input.dataset.uploadKey = key;
+                    input.id = 'dynamic_upload_' + key;
+
+                    const subfield = input.closest('.dynamic-subfield');
+                    const button = subfield?.querySelector('.trigger-crop-btn');
+                    const preview = subfield?.querySelector('.dynamic-image-preview img');
+                    const fileName = subfield?.querySelector('.file-name-display');
+                    const status = subfield?.querySelector('.status-msg');
+                    const remove = subfield?.querySelector('.dynamic-remove-image-file');
+                    const title = subfield?.querySelector('.dynamic-image-title-input');
+
+                    if (button) button.dataset.target = input.id;
+                    if (preview) preview.id = 'croppedImagePreview' + key;
+                    if (fileName) fileName.id = 'fileNameDisplay' + key;
+                    if (status) status.id = 'uploadStatus' + key;
+                    if (remove) remove.id = 'removeBtn' + key;
+                    if (title) title.id = 'title_' + key;
+
+                    window.uploaders = window.uploaders || {};
+                    if (!window.uploaders[key]) {
+                        window.uploaders[key] = new LaravelImageUploader(key, {
+                            prefix: 'dynamic_upload',
+                            minWidth: input.dataset.minWidth || 800,
+                            minHeight: input.dataset.minHeight || 600,
+                            outputWidth: input.dataset.outputWidth || input.dataset.minWidth || 800,
+                            outputHeight: input.dataset.outputHeight || input.dataset.minHeight || 600,
+                            maxSize: input.dataset.maxSize || 2
+                        });
+                    }
+                });
             }
 
             document.querySelectorAll('[data-dynamic-wrapper]').forEach(function (wrapper) {
@@ -301,25 +314,18 @@
                 function bindFileControls(row) {
                     row.querySelectorAll('.dynamic-trigger-file').forEach(function (button) {
                         button.addEventListener('click', function () {
-                            const input = button.closest('.dynamic-file-controls, .dynamic-file-row')?.querySelector('input[type=file]');
+                            const input = button.closest('.dynamic-file-row')?.querySelector('input[type=file]');
                             input?.click();
                         });
                     });
 
-                    row.querySelectorAll('input[type=file]').forEach(function (input) {
+                    row.querySelectorAll('input[type=file]:not([data-dynamic-image-upload])').forEach(function (input) {
                         input.addEventListener('change', function () {
                             const file = input.files && input.files[0];
-                            const wrap = input.closest('.dynamic-file-controls, .dynamic-file-row');
+                            const wrap = input.closest('.dynamic-file-row');
                             const name = wrap?.querySelector('.dynamic-file-name');
                             if (name) {
                                 name.textContent = file ? file.name : '未選擇任何檔案';
-                            }
-
-                            if (file && file.type.startsWith('image/')) {
-                                const preview = input.closest('.dynamic-subfield')?.querySelector('.dynamic-image-preview img');
-                                if (preview) {
-                                    preview.src = URL.createObjectURL(file);
-                                }
                             }
                         });
                     });
@@ -332,6 +338,10 @@
                     }
 
                     row.querySelector('[data-dynamic-remove]')?.addEventListener('click', function () {
+                        row.querySelectorAll('input[data-dynamic-image-upload]').forEach(function (input) {
+                            const key = input.dataset.uploadKey;
+                            if (key && window.uploaders) delete window.uploaders[key];
+                        });
                         row.remove();
                         renumber();
                     });
@@ -361,9 +371,7 @@
                     row.addEventListener('dragover', function (event) {
                         event.preventDefault();
                         const dragging = container.querySelector('.sortable-drag');
-                        if (!dragging || dragging === row) {
-                            return;
-                        }
+                        if (!dragging || dragging === row) return;
 
                         const rect = row.getBoundingClientRect();
                         if (event.clientY > rect.top + rect.height / 2) {
@@ -379,11 +387,16 @@
                     });
 
                     bindFileControls(row);
+                    initDynamicImageUploaders(row);
                 }
 
                 container.querySelectorAll('[data-dynamic-row]').forEach(bindRow);
 
                 addButton?.addEventListener('click', function () {
+                    if (!validateRowsBeforeAdd(container)) {
+                        return;
+                    }
+
                     const index = container.querySelectorAll('[data-dynamic-row]').length;
                     const fragment = document.createElement('div');
                     fragment.innerHTML = template.innerHTML.replaceAll('__INDEX__', index).trim();

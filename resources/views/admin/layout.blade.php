@@ -26,6 +26,8 @@
         <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/magnific-popup/magnific-popup.css') }}">
         <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/select2/css/select2.css') }}">
         <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/select2-bootstrap-theme/select2-bootstrap.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/dropzone/basic.css') }}">
+        <link rel="stylesheet" href="{{ asset('admin-assets/template-style/vendor/dropzone/dropzone.css') }}">
         <link rel="stylesheet" href="{{ asset('admin-assets/cms-jquery/cropper/cropper.min.css') }}">
         <link rel="stylesheet" href="{{ asset('admin-assets/cms-crop/crop.css') }}">
     @endif
@@ -134,6 +136,7 @@
 @if($loadsFormAssets)
     <script src="{{ asset('admin-assets/template-style/vendor/magnific-popup/jquery.magnific-popup.js') }}"></script>
     <script src="{{ asset('admin-assets/template-style/vendor/select2/js/select2.js') }}"></script>
+    <script src="{{ asset('admin-assets/template-style/vendor/dropzone/dropzone.js') }}"></script>
     <script src="{{ asset('admin-assets/ckeditor/ckeditor.js') }}"></script>
     <script src="{{ asset('admin-assets/cms-jquery/cropper/cropper.min.js') }}"></script>
 @endif

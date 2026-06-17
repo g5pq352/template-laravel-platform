@@ -11,6 +11,7 @@ return [
     'moduleName' => '最新消息管理',
     'model' => Content::class,
     'strategy' => 'content',
+    'hasLanguage' => true,
     'content_type' => 'news',
 
     'listPage' => [
@@ -96,6 +97,17 @@ return [
                     'fileType' => 'newsMCover',
                     'multiple' => false,
                     'dropzone' => false,
+                    'size' => [
+                        ['w' => 1030, 'h' => 570],
+                    ],
+                ],
+                [
+                    'type' => 'image_upload',
+                    'field' => 'image',
+                    'label' => '上傳圖片',
+                    'fileType' => 'image',
+                    'multiple' => true,
+                    'dropzone' => true,
                     'size' => [
                         ['w' => 1030, 'h' => 570],
                     ],

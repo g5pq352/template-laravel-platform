@@ -13,6 +13,7 @@ class ContactMessage extends Model
     protected $fillable = [
         'site_id',
         'type',
+        'locale',
         'subject',
         'name',
         'email',

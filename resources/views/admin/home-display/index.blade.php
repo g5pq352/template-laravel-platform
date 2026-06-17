@@ -11,11 +11,30 @@
 @section('content')
 <div class="row">
     <div class="col">
+        @if(($languageContext['languages'] ?? collect())->count() > 1)
+            <div class="row align-items-center mb-3">
+                <div class="col-12 col-lg-auto ms-auto mb-3 mb-lg-0">
+                    <ul class="nav nav-pills nav-pills-primary justify-content-lg-end">
+                        @foreach($languageContext['languages'] as $language)
+                            <li class="nav-item">
+                                <a @class(['nav-link py-1 px-3', 'active' => ($languageContext['slug'] ?? null) === $language->slug])
+                                   href="{{ route('admin.home-display.index', array_merge(request()->except(['page', 'language']), ['language' => $language->slug])) }}">
+                                    {{ $language->name }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            </div>
+        @endif
+
         <div class="card card-modern">
             <div class="card-body">
                 <div class="datatables-header-footer-wrapper dataTables_wrapper mt-2">
                     <div class="datatable-header">
                         <form method="get" action="{{ route('admin.home-display.index') }}" class="row align-items-center mb-3">
+                            <input type="hidden" name="language" value="{{ $languageContext['slug'] ?? '' }}">
+
                             <div class="col-4 col-lg-auto ms-auto ml-auto mb-3 mb-lg-0">
                                 <div class="d-flex align-items-lg-center flex-column flex-lg-row">
                                     <label class="ws-nowrap me-3 mb-0">Show:</label>
@@ -49,27 +68,27 @@
                         <tbody>
                             @forelse($items as $item)
                                 @php
-                                    $translation = $item->translation($site->default_locale);
+                                    $translation = $item->translation($languageContext['locale'] ?? $site->default_locale);
                                     $isInHome = !empty($item->home_display_id);
                                     $homeSort = (int) ($item->home_sort_order ?? 0);
                                 @endphp
                                 <tr data-content-id="{{ $item->id }}">
                                     <td>{{ optional($item->published_at ?? $item->created_at)->format('Y-m-d H:i:s') }}</td>
                                     <td>
-                                        <a class="font-weight-semibold" href="{{ route('admin.news.edit', $item->id) }}">{{ $translation?->title ?: '-' }}</a>
+                                        <a class="font-weight-semibold" href="{{ route("admin.{$targetResource}.edit", [$item->id, ...$languageParams]) }}">{{ $translation?->title ?: '-' }}</a>
                                         @if($translation?->summary)
                                             <div class="text-muted text-2 mt-1">{{ $translation->summary }}</div>
                                         @endif
                                     </td>
                                     <td>
-                                        <select class="form-control-sm js-home-sort" style="width: 55px;" data-url="{{ route('admin.home-display.sort', $item->id) }}" @disabled(!$isInHome)>
+                                        <select class="form-control-sm js-home-sort" style="width: 55px;" data-url="{{ route('admin.home-display.sort', [$item->id, ...$languageParams]) }}" @disabled(!$isInHome)>
                                             @for($i = 1; $i <= max(1, $displayCount); $i++)
                                                 <option value="{{ $i }}" @selected($homeSort === $i)>{{ $i }}</option>
                                             @endfor
                                         </select>
                                     </td>
                                     <td>
-                                        <button class="btn js-home-toggle" type="button" data-url="{{ route('admin.home-display.toggle', $item->id) }}" style="background-color: {{ $isInHome ? '#28a745' : '#dc3545' }}; color: #fff; padding: 5px 10px; border-radius: 4px;">
+                                        <button class="btn js-home-toggle" type="button" data-url="{{ route('admin.home-display.toggle', [$item->id, ...$languageParams]) }}" style="background-color: {{ $isInHome ? '#28a745' : '#dc3545' }}; color: #fff; padding: 5px 10px; border-radius: 4px;">
                                             {{ $isInHome ? '顯示' : '不顯示' }}
                                         </button>
                                     </td>
@@ -134,7 +153,7 @@
                     window.location.reload();
                 } catch (error) {
                     button.disabled = false;
-                    cmsAlert('操作失敗，請稍後再試。', 'error');
+                    cmsAlert('首頁顯示切換失敗，請稍後再試。', 'error');
                 }
             });
         });

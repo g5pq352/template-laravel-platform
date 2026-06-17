@@ -5,9 +5,18 @@ $module = 'homeDisplay';
 return [
     'module' => $module,
     'moduleName' => '首頁顯示管理',
+    'label' => '首頁顯示管理',
     'pageType' => 'home_display',
+    'hasLanguage' => true,
+
+    // 可依需求切換首頁顯示來源。
+    // targetContentType 對應 content_types.code。
+    // targetResource 對應後台 Resource route，例如 admin.news.edit。
     'targetModule' => 'news',
+    'targetResource' => 'news',
+    'targetContentType' => 'news',
     'targetLabel' => '最新消息',
+
     'showAddButton' => false,
     'showBatchActions' => false,
     'hasTrash' => false,

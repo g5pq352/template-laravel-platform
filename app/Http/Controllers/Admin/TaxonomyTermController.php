@@ -9,6 +9,7 @@ use App\Models\TaxonomyTerm;
 use App\Services\HierarchicalTreeService;
 use App\Services\TaxonomyTreeService;
 use App\Support\AdminContext;
+use App\Support\AdminLanguage;
 use App\Support\CmsSetLoader;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -38,18 +39,21 @@ class TaxonomyTermController extends Controller
         $parentId = $request->integer('parent_id') ?: null;
         $trash = $request->boolean('trash');
         $useHierarchy = (bool) $taxonomyModel->is_hierarchical;
+        $languageContext = AdminLanguage::context($site, $request);
+        $languageEnabled = AdminLanguage::enabledFor($taxonomyConfig);
+        $locale = $languageEnabled ? $languageContext['locale'] : $site->default_locale;
 
         $parent = $parentId && $useHierarchy
             ? TaxonomyTerm::query()
                 ->where('taxonomy_id', $taxonomyModel->id)
-                ->where('locale', $site->default_locale)
+                ->where('locale', $locale)
                 ->with('parent')
                 ->findOrFail($parentId)
             : null;
 
         $termScope = TaxonomyTerm::query()
             ->where('taxonomy_id', $taxonomyModel->id)
-            ->where('locale', $site->default_locale)
+            ->where('locale', $locale)
             ->where(function (Builder $query) use ($parentId, $useHierarchy): void {
                 if ($useHierarchy) {
                     $parentId ? $query->where('parent_id', $parentId) : $query->whereNull('parent_id');
@@ -76,8 +80,15 @@ class TaxonomyTermController extends Controller
             'taxonomyConfig' => $taxonomyConfig,
             'parent' => $parent,
             'trash' => $trash,
-            'trashCount' => TaxonomyTerm::query()->where('taxonomy_id', $taxonomyModel->id)->onlyTrashed()->count(),
+            'trashCount' => TaxonomyTerm::query()
+                ->where('taxonomy_id', $taxonomyModel->id)
+                ->where('locale', $locale)
+                ->onlyTrashed()
+                ->count(),
             'sortOptionCount' => (clone $termScope)->count(),
+            'languageContext' => $languageContext,
+            'languageEnabled' => $languageEnabled,
+            'languageParams' => $this->languageRouteParams($languageContext, $languageEnabled),
             'terms' => $termScope
                 ->withCount('children')
                 ->with('parent')
@@ -96,6 +107,9 @@ class TaxonomyTermController extends Controller
         $taxonomyModel = $this->taxonomyForSite($site, $taxonomy);
         $taxonomyConfig = $this->taxonomyConfig($taxonomy);
         $parentId = $taxonomyModel->is_hierarchical ? ($request->integer('parent_id') ?: null) : null;
+        $languageContext = AdminLanguage::context($site, $request);
+        $languageEnabled = AdminLanguage::enabledFor($taxonomyConfig);
+        $locale = $languageEnabled ? $languageContext['locale'] : $site->default_locale;
 
         return view('admin.taxonomies.form', [
             'admin' => $context->user(),
@@ -106,14 +120,17 @@ class TaxonomyTermController extends Controller
             'taxonomyConfig' => $taxonomyConfig,
             'term' => null,
             'parentOptions' => $taxonomyModel->is_hierarchical
-                ? $this->taxonomyParentOptions($taxonomyModel, $site->default_locale)
+                ? $this->taxonomyParentOptions($taxonomyModel, $locale)
                 : [],
             'parentTree' => $taxonomyModel->is_hierarchical
-                ? $this->taxonomyTree($taxonomyModel, $site->default_locale)
+                ? $this->taxonomyTree($taxonomyModel, $locale)
                 : [],
-            'taxonomyOptionsByField' => $this->taxonomyOptionsByField($taxonomyConfig, $site, $site->default_locale),
+            'taxonomyOptionsByField' => $this->taxonomyOptionsByField($taxonomyConfig, $site, $locale),
             'selectedTermIdsByField' => [],
-            'values' => ['parent_id' => $parentId, 'locale' => $site->default_locale, 'is_active' => true, 'sort_order' => 0],
+            'values' => ['parent_id' => $parentId, 'locale' => $locale, 'is_active' => true, 'sort_order' => 0],
+            'languageContext' => $languageContext,
+            'languageEnabled' => $languageEnabled,
+            'languageParams' => $this->languageRouteParams($languageContext, $languageEnabled),
         ]);
     }
 
@@ -124,6 +141,8 @@ class TaxonomyTermController extends Controller
 
         $taxonomyModel = $this->taxonomyForSite($site, $taxonomy);
         $taxonomyConfig = $this->taxonomyConfig($taxonomy);
+        $languageContext = AdminLanguage::context($site, $request);
+        $languageEnabled = AdminLanguage::enabledFor($taxonomyConfig);
         $data = $this->validatedData($request, $taxonomyModel->id, hierarchical: (bool) $taxonomyModel->is_hierarchical, config: $taxonomyConfig);
         $parentId = $taxonomyModel->is_hierarchical ? (($data['parent_id'] ?? null) ?: null) : null;
 
@@ -143,7 +162,7 @@ class TaxonomyTermController extends Controller
         $this->syncRelatedTerms($term, $taxonomyConfig, $data);
 
         return redirect()
-            ->route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parentId]))
+            ->route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parentId, ...$this->languageRouteParams($languageContext, $languageEnabled)]))
             ->with('status', '分類已建立。');
     }
 
@@ -152,6 +171,8 @@ class TaxonomyTermController extends Controller
         $this->authorizeTerm($context, $taxonomy, $term);
 
         $taxonomyConfig = $this->taxonomyConfig($taxonomy);
+        $languageContext = AdminLanguage::context($context->site(), request());
+        $languageEnabled = AdminLanguage::enabledFor($taxonomyConfig);
 
         return view('admin.taxonomies.form', [
             'admin' => $context->user(),
@@ -170,6 +191,9 @@ class TaxonomyTermController extends Controller
             'taxonomyOptionsByField' => $this->taxonomyOptionsByField($taxonomyConfig, $term->taxonomy->site, $term->locale, $term->id),
             'selectedTermIdsByField' => $this->selectedRelatedTermIdsByField($term, $taxonomyConfig),
             'values' => $term->attributesToArray(),
+            'languageContext' => $languageContext,
+            'languageEnabled' => $languageEnabled,
+            'languageParams' => $this->languageRouteParams($languageContext, $languageEnabled),
         ]);
     }
 
@@ -178,6 +202,8 @@ class TaxonomyTermController extends Controller
         $this->authorizeTerm($context, $taxonomy, $term);
 
         $taxonomyConfig = $this->taxonomyConfig($taxonomy);
+        $languageContext = AdminLanguage::context($context->site(), $request);
+        $languageEnabled = AdminLanguage::enabledFor($taxonomyConfig);
         $data = $this->validatedData($request, $term->taxonomy_id, $term->id, (bool) $term->taxonomy->is_hierarchical, $taxonomyConfig);
         $parentId = $term->taxonomy->is_hierarchical ? (($data['parent_id'] ?? null) ?: null) : null;
 
@@ -195,7 +221,7 @@ class TaxonomyTermController extends Controller
         $this->normalizeSiblingsAfterTreeChange($term);
         $this->syncRelatedTerms($term, $taxonomyConfig, $data);
 
-        return redirect()->route('admin.taxonomies.edit', [$taxonomy, $term])->with('status', '分類已更新。');
+        return redirect()->route('admin.taxonomies.edit', [$taxonomy, $term, ...$this->languageRouteParams($languageContext, $languageEnabled)])->with('status', '分類已更新。');
     }
 
     public function sort(AdminContext $context, Request $request, string $taxonomy, TaxonomyTerm $term): JsonResponse
@@ -229,6 +255,8 @@ class TaxonomyTermController extends Controller
     public function destroy(AdminContext $context, string $taxonomy, TaxonomyTerm $term): RedirectResponse|JsonResponse
     {
         $this->authorizeTerm($context, $taxonomy, $term);
+        $languageContext = AdminLanguage::context($context->site(), request());
+        $languageParams = $this->languageRouteParams($languageContext, AdminLanguage::enabledFor($this->taxonomyConfig($taxonomy)));
         $parentId = $term->parent_id;
         $termIds = $this->termTreeIds($term);
 
@@ -250,7 +278,7 @@ class TaxonomyTermController extends Controller
             $this->normalizeSiblingsAfterTreeChange($term);
         });
 
-        $redirectUrl = route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parentId]));
+        $redirectUrl = route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parentId, ...$languageParams]));
 
         if (request()->expectsJson()) {
             return response()->json([
@@ -272,6 +300,8 @@ class TaxonomyTermController extends Controller
             ->whereHas('taxonomy', fn (Builder $query) => $query->where('site_id', $site->id)->where('code', $taxonomy))
             ->onlyTrashed()
             ->findOrFail($id);
+        $languageContext = AdminLanguage::context($site, request());
+        $languageParams = $this->languageRouteParams($languageContext, AdminLanguage::enabledFor($this->taxonomyConfig($taxonomy)));
 
         DB::transaction(function () use ($term): void {
             TaxonomyTerm::withTrashed()
@@ -284,7 +314,7 @@ class TaxonomyTermController extends Controller
             $this->normalizeSiblingsAfterTreeChange($term);
         });
 
-        $redirectUrl = route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $term->parent_id]));
+        $redirectUrl = route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $term->parent_id, ...$languageParams]));
 
         if (request()->expectsJson()) {
             return response()->json([
@@ -306,6 +336,8 @@ class TaxonomyTermController extends Controller
             ->whereHas('taxonomy', fn (Builder $query) => $query->where('site_id', $site->id)->where('code', $taxonomy))
             ->onlyTrashed()
             ->findOrFail($id);
+        $languageContext = AdminLanguage::context($site, request());
+        $languageParams = $this->languageRouteParams($languageContext, AdminLanguage::enabledFor($this->taxonomyConfig($taxonomy)));
 
         $termIds = $this->termTreeIds($term, withTrashed: true);
         if (!request()->boolean('force')) {
@@ -320,7 +352,7 @@ class TaxonomyTermController extends Controller
             $this->normalizeSiblingsAfterTreeChange($term);
         });
 
-        $redirectUrl = route('admin.taxonomies.index', [$taxonomy, 'trash' => 1]);
+        $redirectUrl = route('admin.taxonomies.index', [$taxonomy, 'trash' => 1, ...$languageParams]);
 
         if (request()->expectsJson()) {
             return response()->json([
@@ -339,12 +371,28 @@ class TaxonomyTermController extends Controller
         abort_unless($site, 404);
 
         $taxonomyModel = $this->taxonomyForSite($site, $taxonomy);
+        $taxonomyConfig = $this->taxonomyConfig($taxonomy);
+        $languageContext = AdminLanguage::context($site, $request);
+        $languageParams = $this->languageRouteParams($languageContext, AdminLanguage::enabledFor($taxonomyConfig));
 
         $data = $request->validate([
-            'action' => ['required', Rule::in(['delete', 'restore', 'force_delete'])],
+            'action' => ['required', Rule::in(['delete', 'restore', 'force_delete', 'clone', 'clone_local'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer'],
+            'target_language' => ['nullable', 'string', 'max:40'],
         ]);
+
+        $targetLocale = null;
+        if ($data['action'] === 'clone') {
+            $targetLocale = AdminLanguage::activeLanguages($site)
+                ->first(fn ($language) => in_array($data['target_language'] ?? null, [$language->slug, $language->locale], true))?->locale;
+
+            abort_unless(
+                AdminLanguage::enabledFor($taxonomyConfig) && $targetLocale && $targetLocale !== $languageContext['locale'],
+                422,
+                '請選擇不同的目標語系'
+            );
+        }
 
         $query = TaxonomyTerm::query()
             ->where('taxonomy_id', $taxonomyModel->id)
@@ -358,7 +406,9 @@ class TaxonomyTermController extends Controller
         $affectedIds = [];
 
         foreach ($terms as $term) {
-            $ids = $this->termTreeIds($term, withTrashed: in_array($data['action'], ['restore', 'force_delete'], true));
+            $ids = in_array($data['action'], ['clone', 'clone_local'], true)
+                ? $this->termTreeIds($term)
+                : $this->termTreeIds($term, withTrashed: in_array($data['action'], ['restore', 'force_delete'], true));
             $affectedIds = array_values(array_unique([...$affectedIds, ...$ids]));
         }
 
@@ -375,8 +425,33 @@ class TaxonomyTermController extends Controller
             }
         }
 
-        DB::transaction(function () use ($terms, $data, &$affectedIds): void {
+        DB::transaction(function () use ($terms, $data, $targetLocale, &$affectedIds): void {
             if ($affectedIds === []) {
+                return;
+            }
+
+            if (in_array($data['action'], ['clone', 'clone_local'], true)) {
+                $cloneLocale = $data['action'] === 'clone_local'
+                    ? (string) $terms->first()?->locale
+                    : (string) $targetLocale;
+                $cloneMap = [];
+                TaxonomyTerm::query()
+                    ->whereIn('id', $affectedIds)
+                    ->orderBy('parent_id')
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get()
+                    ->each(function (TaxonomyTerm $term) use (&$cloneMap, $cloneLocale, $data): void {
+                        $this->cloneTermToLocale($term, $cloneLocale, $cloneMap, sameLocale: $data['action'] === 'clone_local');
+                    });
+
+                TaxonomyTerm::query()
+                    ->whereIn('id', $affectedIds)
+                    ->get()
+                    ->each(function (TaxonomyTerm $term) use (&$cloneMap, $cloneLocale, $data): void {
+                        $this->cloneTermRelationsToLocale($term, $cloneLocale, $cloneMap, sameLocale: $data['action'] === 'clone_local');
+                    });
+
                 return;
             }
 
@@ -394,7 +469,15 @@ class TaxonomyTermController extends Controller
         return response()->json([
             'ok' => true,
             'message' => $this->bulkActionMessage($data['action'], count($affectedIds)),
-            'redirect_url' => $data['action'] === 'restore' ? route('admin.taxonomies.index', $taxonomy) : null,
+            'redirect_url' => match ($data['action']) {
+                'restore' => route('admin.taxonomies.index', [$taxonomy, ...$languageParams]),
+                'clone' => route('admin.taxonomies.index', [
+                    $taxonomy,
+                    'language' => AdminLanguage::activeLanguages($site)
+                        ->first(fn ($language) => $language->locale === $targetLocale)?->slug ?? $targetLocale,
+                ]),
+                default => null,
+            },
         ]);
     }
 
@@ -633,6 +716,79 @@ class TaxonomyTermController extends Controller
         }
     }
 
+    /**
+     * @param array<int, int> $cloneMap
+     */
+    private function cloneTermToLocale(TaxonomyTerm $source, string $targetLocale, array &$cloneMap, bool $sameLocale = false): TaxonomyTerm
+    {
+        if (isset($cloneMap[$source->id])) {
+            return TaxonomyTerm::query()->findOrFail($cloneMap[$source->id]);
+        }
+
+        $targetParentId = null;
+        if ($source->parent_id) {
+            $parent = TaxonomyTerm::query()->find((int) $source->parent_id);
+            if ($parent) {
+                $targetParentId = $this->cloneTermToLocale($parent, $targetLocale, $cloneMap, $sameLocale)->id;
+            }
+        }
+
+        $target = TaxonomyTerm::query()->create([
+            'taxonomy_id' => $source->taxonomy_id,
+            'parent_id' => $targetParentId,
+            'locale' => $targetLocale,
+            'name' => $sameLocale ? $source->name . ' (副本)' : $source->name,
+            'slug' => $sameLocale
+                ? $this->uniqueSlug($source->taxonomy_id, $targetLocale, $source->slug . '-copy')
+                : $this->uniqueSlug($source->taxonomy_id, $targetLocale, $source->slug),
+            'description' => $source->description,
+            'seo_title' => $source->seo_title,
+            'seo_description' => $source->seo_description,
+            'is_active' => $source->is_active,
+            'sort_order' => $this->nextSortOrder($source->taxonomy_id, $targetLocale, $targetParentId),
+        ]);
+
+        $cloneMap[$source->id] = $target->id;
+
+        return $target;
+    }
+
+    /**
+     * @param array<int, int> $cloneMap
+     */
+    private function cloneTermRelationsToLocale(TaxonomyTerm $source, string $targetLocale, array &$cloneMap, bool $sameLocale = false): void
+    {
+        $targetSourceId = $cloneMap[$source->id] ?? null;
+        if (!$targetSourceId) {
+            return;
+        }
+
+        DB::table('taxonomy_term_relations')
+            ->where('source_term_id', $source->id)
+            ->orderBy('sort_order')
+            ->get()
+            ->each(function ($relation) use ($targetSourceId, $targetLocale, &$cloneMap): void {
+                $related = TaxonomyTerm::query()->find((int) $relation->related_term_id);
+                if (!$related) {
+                    return;
+                }
+
+                $targetRelated = $this->cloneTermToLocale($related, $targetLocale, $cloneMap, $sameLocale);
+                DB::table('taxonomy_term_relations')->updateOrInsert(
+                    [
+                        'source_term_id' => $targetSourceId,
+                        'related_term_id' => $targetRelated->id,
+                        'field' => $relation->field,
+                    ],
+                    [
+                        'sort_order' => $relation->sort_order,
+                        'updated_at' => now(),
+                        'created_at' => now(),
+                    ]
+                );
+            });
+    }
+
     private function taxonomyFields(array $config): array
     {
         return collect($config['form_sections'] ?? [])
@@ -821,6 +977,7 @@ class TaxonomyTermController extends Controller
             'delete' => "已移至垃圾桶 {$count} 筆分類。",
             'restore' => "已還原 {$count} 筆分類。",
             'force_delete' => "已永久刪除 {$count} 筆分類。",
+            'clone', 'clone_local' => "已複製 {$count} 筆分類。",
             default => "已處理 {$count} 筆分類。",
         };
     }
@@ -833,6 +990,7 @@ class TaxonomyTermController extends Controller
 
         while (
             TaxonomyTerm::query()
+                ->withTrashed()
                 ->where('taxonomy_id', $taxonomyId)
                 ->where('locale', $locale)
                 ->where('slug', $candidate)
@@ -844,6 +1002,11 @@ class TaxonomyTermController extends Controller
         }
 
         return $candidate;
+    }
+
+    private function languageRouteParams(array $languageContext, bool $enabled): array
+    {
+        return $enabled ? ['language' => $languageContext['slug']] : [];
     }
 
     private function label(string $taxonomy): string

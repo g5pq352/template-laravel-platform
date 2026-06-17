@@ -7,6 +7,7 @@ return [
     'module' => $module,
     'moduleName' => '最新消息分類',
     'strategy' => 'taxonomy',
+    'hasLanguage' => true,
     'pageType' => 'taxonomy',
     'taxonomy' => $module,
     'taxonomy_label' => '最新消息分類',

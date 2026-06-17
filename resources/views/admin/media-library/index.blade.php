@@ -24,18 +24,11 @@
 
 @section('content')
 <div class="media-library-page" data-current-folder-id="{{ $folderId ?? '' }}">
-    @if(session('status'))
-        <div class="alert alert-success">{{ session('status') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
-    @endif
-
     <div class="row align-items-center mb-3">
         <div class="col-12 col-lg-auto mb-3 mb-lg-0">
             @if($folder)
                 <span class="me-3">目前位置：{{ $folder->pathLabel() }}</span>
-                <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.media-library.index', array_filter(['folder_id' => $folder->parent_id])) }}">
+                <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.media-library.index', array_filter(['folder_id' => $folder->parent_id, 'trash' => $trash ? 1 : null])) }}">
                     <i class="fas fa-arrow-left"></i> 返回上一層
                 </a>
             @else
@@ -43,7 +36,7 @@
             @endif
 
             @if($trash)
-                <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.media-library.index', array_filter(['folder_id' => $folderId])) }}">
+                <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.media-library.index') }}">
                     <i class="fas fa-images"></i> 回圖片庫
                 </a>
             @else
@@ -69,7 +62,8 @@
                         href="{{ route('admin.media-library.index') }}"
                         data-folder-id=""
                     >
-                        <i class="fas fa-home"></i>
+                        <span class="media-folder-toggle" aria-hidden="true"></span>
+                        <i class="bx bx-home media-folder-icon"></i>
                         <span>根目錄</span>
                     </a>
                     @include('admin.media-library.partials.folder-tree', ['nodes' => $folderTree, 'folderId' => $folderId])
@@ -111,6 +105,35 @@
                             </div>
                         </div>
                     </form>
+
+                    @if($trash && $folders->isNotEmpty())
+                        <div class="media-folder-grid mb-4">
+                            @foreach($folders as $childFolder)
+                                <div class="media-folder-tile">
+                                    <a href="{{ route('admin.media-library.index', ['trash' => 1, 'folder_id' => $childFolder->id]) }}">
+                                        <i class="fas fa-folder"></i>
+                                        <strong>{{ $childFolder->name }}</strong>
+                                        <span>{{ $childFolder->active_media_count }} 張圖片 / {{ $childFolder->active_children_count }} 個資料夾</span>
+                                    </a>
+                                    <div class="media-folder-actions">
+                                        <form method="post" action="{{ route('admin.media-library.folders.restore', $childFolder->id) }}">
+                                            @csrf
+                                            <button class="btn btn-success btn-sm" type="submit" title="還原">
+                                                <i class="fas fa-undo"></i>
+                                            </button>
+                                        </form>
+                                        <form method="post" action="{{ route('admin.media-library.folders.force-delete', $childFolder->id) }}" data-confirm="確定永久刪除此資料夾？此動作無法復原。">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button class="btn btn-danger btn-sm" type="submit" title="永久刪除">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
 
                     @if(!$trash && $folders->isNotEmpty())
                         <div class="media-folder-grid mb-4">
@@ -157,6 +180,30 @@
                         </div>
                     @endif
 
+                    @if($mediaItems->count() > 0)
+                        <form class="media-bulk-toolbar" id="mediaBulkForm" method="post" action="{{ route('admin.media-library.media.bulk-action') }}">
+                            @csrf
+                            <input type="hidden" name="action" id="mediaBulkAction" value="">
+                            <div id="mediaBulkIds"></div>
+                            <label class="media-bulk-check">
+                                <input type="checkbox" id="mediaCheckAll">
+                                <span>全選</span>
+                            </label>
+                            @if($trash)
+                                <button class="btn btn-success btn-sm media-bulk-button" type="submit" data-bulk-action="restore" data-bulk-confirm="確定還原選取的圖片？" disabled>
+                                    <i class="fas fa-undo"></i> 還原已選取
+                                </button>
+                                <button class="btn btn-danger btn-sm media-bulk-button" type="submit" data-bulk-action="force_delete" data-bulk-confirm="確定永久刪除選取的圖片？此動作無法復原。" disabled>
+                                    <i class="fas fa-trash-alt"></i> 永久刪除已選取
+                                </button>
+                            @else
+                                <button class="btn btn-danger btn-sm media-bulk-button" type="submit" data-bulk-action="destroy" data-bulk-confirm="確定刪除選取的圖片？圖片會移到垃圾桶。" disabled>
+                                    <i class="fas fa-trash-alt"></i> 刪除已選取項目
+                                </button>
+                            @endif
+                        </form>
+                    @endif
+
                     <div class="media-grid">
                         @forelse($mediaItems as $media)
                             @php
@@ -170,6 +217,9 @@
                                 data-current-folder-id="{{ $media->folder_id ?? '' }}"
                                 data-move-url="{{ route('admin.media-library.media.move', $media) }}"
                             >
+                                <label class="media-select-control" title="選取">
+                                    <input class="media-select-checkbox" type="checkbox" value="{{ $media->id }}">
+                                </label>
                                 @unless($trash)
                                     <button class="media-drag-handle" type="button" draggable="true" title="拖曳移動圖片">
                                         <i class="fas fa-grip-vertical"></i>
@@ -198,7 +248,7 @@
                                                 <i class="fas fa-undo"></i>
                                             </button>
                                         </form>
-                                        <form method="post" action="{{ route('admin.media-library.media.force-delete', $media->id) }}" data-confirm="確定永久刪除？這個動作無法還原。">
+                                        <form method="post" action="{{ route('admin.media-library.media.force-delete', $media->id) }}" data-confirm="確定永久刪除此圖片？此動作無法復原。">
                                             @csrf
                                             @method('DELETE')
                                             <button class="btn btn-danger btn-sm" type="submit" title="永久刪除">
@@ -212,7 +262,7 @@
                                         <button class="btn btn-info btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#editMedia{{ $media->id }}" title="編輯">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <form method="post" action="{{ route('admin.media-library.media.destroy', $media) }}" data-confirm="確定將圖片移到垃圾桶？">
+                                        <form method="post" action="{{ route('admin.media-library.media.destroy', $media) }}" data-confirm="確定刪除此圖片？圖片會移到垃圾桶。">
                                             @csrf
                                             @method('DELETE')
                                             <button class="btn btn-danger btn-sm" type="submit" title="刪除">
@@ -260,10 +310,6 @@
                         @empty
                             <div class="media-empty-state">
                                 <i class="fas fa-images"></i>
-                                <strong>{{ $trash ? '垃圾桶目前是空的' : '這個資料夾還沒有圖片' }}</strong>
-                                @unless($trash)
-                                    <span>可以點上方「上傳圖片」新增圖片。</span>
-                                @endunless
                             </div>
                         @endforelse
                     </div>
@@ -346,10 +392,27 @@
 @push('styles')
 <style>
     .media-folder-card .card-body{padding:14px}
-    .media-folder-node{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:4px;color:#333;text-decoration:none;font-size:13px;border:1px solid transparent}
+    .media-folder-node-row{position:relative}
+    .media-folder-node{display:flex;align-items:center;gap:7px;padding:9px 58px 9px 10px;border-radius:4px;color:#333;text-decoration:none;font-size:13px;border:1px solid transparent;min-width:0}
+    .media-folder-node span:last-child{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .media-folder-toggle{display:inline-flex;align-items:center;justify-content:center;width:14px;min-width:14px;color:#9aa1aa;font-size:15px}
+    .media-folder-toggle.has-children{cursor:pointer}
+    .media-folder-toggle i{transition:transform .15s ease}
+    .media-folder-node-wrap.is-collapsed>.media-folder-node-row .media-folder-toggle i{transform:rotate(0deg)}
+    .media-folder-node-wrap:not(.is-collapsed)>.media-folder-node-row .media-folder-toggle i{transform:rotate(90deg)}
+    .media-folder-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;min-width:16px;color:#f0ad4e;font-size:17px}
     .media-folder-node:hover,.media-folder-node.active{background:#0088cc;color:#fff;text-decoration:none}
+    .media-folder-node:hover .media-folder-toggle,.media-folder-node:hover .media-folder-icon,.media-folder-node.active .media-folder-toggle,.media-folder-node.active .media-folder-icon{color:#fff}
     .media-folder-node.is-drag-over,.media-folder-tile.is-drag-over{border-color:#0088cc;background:#e8f6ff;color:#333}
+    .media-folder-node-tools{position:absolute;right:6px;top:50%;display:flex;align-items:center;gap:4px;opacity:0;transform:translateY(-50%);transition:opacity .15s ease;z-index:2}
+    .media-folder-node-row:hover .media-folder-node-tools{opacity:1}
+    .media-folder-node-tools form{margin:0}
+    .media-folder-node-tool{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:0;border-radius:4px;background:transparent;color:#f0ad4e;font-size:12px;line-height:1;cursor:pointer}
+    .media-folder-node-tool:hover{background:rgba(240,173,78,.14);color:#c98921}
+    .media-folder-node-tool.is-danger{color:#d9534f}
+    .media-folder-node-tool.is-danger:hover{background:rgba(217,83,79,.12);color:#b52b27}
     .media-folder-children{padding-left:16px}
+    .media-folder-node-wrap.is-collapsed>.media-folder-children{display:none}
     .media-folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
     .media-folder-tile{display:flex;align-items:center;justify-content:space-between;border:1px solid #e1e1e1;border-radius:4px;padding:14px;background:#fbfbfb}
     .media-folder-tile>a{display:flex;flex-direction:column;gap:4px;color:#333;text-decoration:none;min-width:0}
@@ -357,10 +420,16 @@
     .media-folder-tile>a span{color:#777;font-size:12px}
     .media-folder-actions{display:flex;gap:6px;align-items:center}
     .media-folder-actions form{margin:0}
+    .media-bulk-toolbar{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:10px 0;border-top:1px solid #eef0f3;border-bottom:1px solid #eef0f3}
+    .media-bulk-check{display:inline-flex;align-items:center;gap:6px;margin:0 8px 0 0;font-size:13px;color:#333;cursor:pointer}
+    .media-bulk-check input,.media-select-checkbox{width:16px;height:16px;margin:0;cursor:pointer}
+    .media-bulk-button:disabled{opacity:.55;cursor:not-allowed}
     .media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px}
     .media-card{position:relative;border:1px solid #e2e2e2;border-radius:5px;background:#fff;overflow:hidden;transition:opacity .15s ease, transform .15s ease;cursor:grab}
+    .media-card.is-selected{border-color:#0088cc;box-shadow:0 0 0 2px rgba(0,136,204,.12)}
     .media-card:active{cursor:grabbing}
     .media-card.is-dragging{opacity:.45;transform:scale(.98)}
+    .media-select-control{position:absolute;top:8px;right:8px;z-index:3;display:flex;align-items:center;justify-content:center;width:28px;height:28px;margin:0;border-radius:4px;background:rgba(255,255,255,.92);box-shadow:0 1px 4px rgba(0,0,0,.12);cursor:pointer}
     .media-drag-handle{position:absolute;top:8px;left:8px;z-index:2;width:28px;height:28px;border:0;border-radius:4px;background:rgba(0,0,0,.62);color:#fff;cursor:grab}
     .media-drag-handle:active{cursor:grabbing}
     .media-thumb{display:flex;align-items:center;justify-content:center;width:100%;height:145px;background:#f4f4f4;color:#999;text-decoration:none;border:0;padding:0;cursor:zoom-in}
@@ -411,12 +480,89 @@
         let uploadQueue = [];
         const uploadMaxBytes = 10 * 1024 * 1024;
 
+        document.querySelectorAll('.media-folder-toggle.has-children').forEach(function (toggle) {
+            toggle.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                const wrap = toggle.closest('.media-folder-node-wrap');
+                wrap?.classList.toggle('is-collapsed');
+            });
+        });
+
         document.querySelectorAll('.js-copy-url').forEach(function (button) {
             button.addEventListener('click', async function () {
                 await navigator.clipboard.writeText(button.dataset.url);
-                window.cmsAlert('圖片 URL 已複製', 'success');
             });
         });
+
+        const bulkForm = document.getElementById('mediaBulkForm');
+        const bulkActionInput = document.getElementById('mediaBulkAction');
+        const bulkIds = document.getElementById('mediaBulkIds');
+        const checkAll = document.getElementById('mediaCheckAll');
+        const bulkButtons = Array.from(document.querySelectorAll('.media-bulk-button'));
+        const mediaChecks = Array.from(document.querySelectorAll('.media-select-checkbox'));
+        let pendingBulkButton = null;
+
+        function selectedMediaIds() {
+            return mediaChecks.filter(input => input.checked).map(input => input.value);
+        }
+
+        function syncBulkControls() {
+            const selectedCount = selectedMediaIds().length;
+            bulkButtons.forEach(button => {
+                button.disabled = selectedCount === 0;
+            });
+            if (checkAll) {
+                checkAll.checked = selectedCount > 0 && selectedCount === mediaChecks.length;
+                checkAll.indeterminate = selectedCount > 0 && selectedCount < mediaChecks.length;
+            }
+            mediaChecks.forEach(input => {
+                input.closest('.media-card')?.classList.toggle('is-selected', input.checked);
+            });
+        }
+
+        mediaChecks.forEach(function (input) {
+            input.addEventListener('change', syncBulkControls);
+        });
+
+        checkAll?.addEventListener('change', function () {
+            mediaChecks.forEach(input => {
+                input.checked = checkAll.checked;
+            });
+            syncBulkControls();
+        });
+
+        bulkButtons.forEach(function (button) {
+            button.addEventListener('click', function () {
+                pendingBulkButton = button;
+            });
+        });
+
+        bulkForm?.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const ids = selectedMediaIds();
+            const button = pendingBulkButton || bulkButtons.find(item => !item.disabled);
+            if (!button || ids.length === 0) return;
+
+            if (!(await window.cmsConfirm(button.dataset.bulkConfirm || '確定執行批次操作？'))) {
+                pendingBulkButton = null;
+                return;
+            }
+
+            bulkActionInput.value = button.dataset.bulkAction || '';
+            bulkIds.innerHTML = '';
+            ids.forEach(function (id) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids[]';
+                input.value = id;
+                bulkIds.appendChild(input);
+            });
+
+            bulkForm.submit();
+        });
+
+        syncBulkControls();
 
         const lightboxEl = document.getElementById('mediaLightboxModal');
         const lightboxImage = document.getElementById('mediaLightboxImage');
@@ -439,7 +585,7 @@
 
         document.querySelectorAll('.media-card[draggable="true"]').forEach(function (card) {
             card.addEventListener('dragstart', function (event) {
-                if (event.target.closest('.media-actions')) {
+                if (event.target.closest('.media-actions') || event.target.closest('.media-select-control')) {
                     event.preventDefault();
                     return;
                 }
@@ -492,7 +638,6 @@
 
                 const targetFolderId = dropzone.dataset.folderId || '';
                 if ((card.dataset.currentFolderId || '') === targetFolderId) {
-                    window.cmsAlert('圖片已在這個資料夾中', 'info');
                     return;
                 }
 
@@ -514,9 +659,8 @@
                     if (currentFolderId !== targetFolderId) {
                         card.remove();
                     }
-                    window.cmsAlert(payload.message || '圖片已移動', 'success');
                 } catch (error) {
-                    window.cmsAlert(error.message || '圖片移動失敗', 'error');
+                    console.error(error);
                 } finally {
                     draggedCard = null;
                 }
@@ -586,7 +730,6 @@
         function addUploadFiles(files) {
             Array.from(files).forEach(function (file) {
                 if (!file.type.startsWith('image/')) {
-                    window.cmsAlert(`${file.name} 不是圖片檔`, 'warning');
                     return;
                 }
 
@@ -728,9 +871,7 @@
                     if (remaining === 0) {
                         syncUploadButtons();
                         if (successCount > 0) {
-                            window.cmsAlert(`已上傳 ${successCount} 張圖片`, 'success').then(function () {
-                                window.location.reload();
-                            });
+                            window.location.reload();
                         }
                     }
                 });

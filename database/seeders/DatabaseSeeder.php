@@ -8,6 +8,8 @@ use App\Models\ContactMessage;
 use App\Models\Content;
 use App\Models\ContentTranslation;
 use App\Models\ContentType;
+use App\Models\Language;
+use App\Models\LanguagePack;
 use App\Models\Site;
 use App\Models\SiteDomain;
 use App\Models\Taxonomy;
@@ -47,6 +49,38 @@ class DatabaseSeeder extends Seeder
                 ['domain' => 'localhost:8013'],
                 ['site_id' => $site->id, 'is_primary' => true, 'force_https' => false]
             );
+
+            if (Schema::hasTable('languages')) {
+                foreach ([
+                    ['slug' => 'tw', 'name' => '繁體中文', 'name_en' => 'Traditional Chinese', 'locale' => $site->default_locale, 'is_default' => true, 'sort_order' => 1],
+                    ['slug' => 'en', 'name' => 'English', 'name_en' => 'English', 'locale' => 'en', 'is_default' => false, 'sort_order' => 2],
+                    ['slug' => 'cn', 'name' => '簡體中文', 'name_en' => 'Simplified Chinese', 'locale' => 'zh-Hans-CN', 'is_default' => false, 'sort_order' => 3],
+                    ['slug' => 'jp', 'name' => '日文', 'name_en' => 'Japanese', 'locale' => 'ja', 'is_default' => false, 'sort_order' => 4],
+                ] as $language) {
+                    Language::query()->updateOrCreate(
+                        ['site_id' => $site->id, 'slug' => $language['slug']],
+                        [
+                            'name' => $language['name'],
+                            'name_en' => $language['name_en'],
+                            'locale' => $language['locale'],
+                            'is_default' => $language['is_default'],
+                            'is_active' => true,
+                            'sort_order' => $language['sort_order'],
+                        ]
+                    );
+                }
+            }
+
+            if (Schema::hasTable('language_packs')) {
+                $pack = LanguagePack::query()->firstOrCreate(
+                    ['site_id' => $site->id, 'key' => 'common.more'],
+                    ['note' => '前台共用文字', 'sort_order' => 1]
+                );
+                $pack->translations()->updateOrCreate(
+                    ['locale' => $site->default_locale],
+                    ['value' => '了解更多']
+                );
+            }
 
             foreach ([
                 ['code' => 'home', 'name' => '首頁'],
@@ -101,7 +135,7 @@ class DatabaseSeeder extends Seeder
                     ['title' => '聯絡我們', 'module_key' => 'contact', 'route_name' => 'admin.contact.index', 'icon' => 'bx bx-detail'],
                     ['title' => '全站設定', 'module_key' => 'settings', 'route_name' => 'admin.info.edit', 'icon' => 'bx bx-cog', 'settings' => ['route_params' => ['module' => 'keywordsInfo']]],
                     ['title' => '權限管理', 'module_key' => 'permissions', 'url' => '#', 'icon' => 'bx bx-user-circle'],
-                    ['title' => '選單管理', 'module_key' => 'menus', 'route_name' => 'admin.menus.index', 'icon' => 'fa-solid fa-bars'],
+                    ['title' => '選單管理', 'module_key' => 'menus', 'route_name' => 'admin.menus.index', 'icon' => 'fas fa-bars'],
                 ] as $index => $menu) {
                     CmsMenu::query()->updateOrCreate(
                         [

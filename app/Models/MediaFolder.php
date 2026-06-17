@@ -46,7 +46,7 @@ class MediaFolder extends Model
 
         while ($current) {
             array_unshift($labels, $current->name);
-            $current = $current->relationLoaded('parent') ? $current->parent : $current->parent()->first();
+            $current = $current->relationLoaded('parent') ? $current->parent : $current->parent()->withTrashed()->first();
         }
 
         return implode(' / ', $labels);

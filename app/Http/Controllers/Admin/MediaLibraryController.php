@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Media;
 use App\Models\MediaFolder;
 use App\Support\AdminContext;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -28,33 +29,48 @@ class MediaLibraryController extends Controller
         $perPage = min(max((int) $request->query('per_page', 24), 12), 96);
 
         $folder = $folderId
-            ? MediaFolder::query()->where('site_id', $site->id)->with('parent')->findOrFail($folderId)
+            ? ($trash
+                ? MediaFolder::withTrashed()->where('site_id', $site->id)->findOrFail($folderId)
+                : MediaFolder::query()->where('site_id', $site->id)->with('parent')->findOrFail($folderId))
             : null;
 
-        $folders = MediaFolder::query()
-            ->where('site_id', $site->id)
-            ->where(function ($query) use ($folderId): void {
-                $folderId ? $query->where('parent_id', $folderId) : $query->whereNull('parent_id');
-            })
-            ->withCount([
-                'children as active_children_count' => fn ($query) => $query->whereNull('deleted_at'),
-                'media as active_media_count' => fn ($query) => $query->whereNull('deleted_at'),
-            ])
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        $folders = $trash
+            ? $this->trashedFolders($site->id, $folderId)
+            : MediaFolder::query()
+                ->where('site_id', $site->id)
+                ->where(function ($query) use ($folderId): void {
+                    $folderId ? $query->where('parent_id', $folderId) : $query->whereNull('parent_id');
+                })
+                ->withCount([
+                    'children as active_children_count' => fn ($query) => $query->whereNull('deleted_at'),
+                    'media as active_media_count' => fn ($query) => $query->whereNull('deleted_at'),
+                ])
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
 
         $mediaQuery = Media::query()
             ->where('site_id', $site->id)
             ->where('collection_name', 'library');
 
-        if (!$trash) {
+        if ($trash) {
+            $mediaQuery->onlyTrashed();
+
+            if ($folderId) {
+                $mediaQuery->where('folder_id', $folderId);
+            } else {
+                $mediaQuery->where(function ($query) use ($site): void {
+                    $query->whereNull('folder_id')
+                        ->orWhereNotIn('folder_id', MediaFolder::onlyTrashed()
+                            ->where('site_id', $site->id)
+                            ->select('id'));
+                });
+            }
+        } else {
             $mediaQuery->where(function ($query) use ($folderId): void {
                 $folderId ? $query->where('folder_id', $folderId) : $query->whereNull('folder_id');
-            });
+            })->whereNull('deleted_at');
         }
-
-        $trash ? $mediaQuery->onlyTrashed() : $mediaQuery->whereNull('deleted_at');
 
         $mediaQuery->when($keyword !== '', function ($query) use ($keyword): void {
             $query->where(function ($nested) use ($keyword): void {
@@ -71,8 +87,6 @@ class MediaLibraryController extends Controller
             default => $mediaQuery->orderByDesc('created_at')->orderByDesc('id'),
         };
 
-        $mediaItems = $mediaQuery->paginate($perPage)->withQueryString();
-
         return view('admin.media-library.index', [
             'admin' => $context->user(),
             'site' => $site,
@@ -80,16 +94,12 @@ class MediaLibraryController extends Controller
             'folder' => $folder,
             'folders' => $folders,
             'folderTree' => $this->folderTree($site->id),
-            'mediaItems' => $mediaItems,
+            'mediaItems' => $mediaQuery->paginate($perPage)->withQueryString(),
             'folderId' => $folderId,
             'keyword' => $keyword,
             'sort' => $sort,
             'trash' => $trash,
-            'trashCount' => Media::withTrashed()
-                ->where('site_id', $site->id)
-                ->where('collection_name', 'library')
-                ->whereNotNull('deleted_at')
-                ->count(),
+            'trashCount' => $this->trashCount($site->id),
         ]);
     }
 
@@ -120,7 +130,7 @@ class MediaLibraryController extends Controller
                 ->max('sort_order')) + 1,
         ]);
 
-        return back()->with('status', '資料夾已建立');
+        return back();
     }
 
     public function updateFolder(AdminContext $context, Request $request, MediaFolder $folder): RedirectResponse
@@ -137,7 +147,7 @@ class MediaLibraryController extends Controller
             'slug' => $this->uniqueFolderSlug($site->id, $folder->parent_id, $data['name'], $folder->id),
         ]);
 
-        return back()->with('status', '資料夾已更新');
+        return back();
     }
 
     public function destroyFolder(AdminContext $context, MediaFolder $folder): RedirectResponse
@@ -164,9 +174,74 @@ class MediaLibraryController extends Controller
                 ->delete();
         });
 
-        return redirect()
-            ->route('admin.media-library.index', array_filter(['folder_id' => $parentId]))
-            ->with('status', '資料夾與其中圖片已移至垃圾桶');
+        return redirect()->route('admin.media-library.index', array_filter(['folder_id' => $parentId]));
+    }
+
+    public function restoreFolder(AdminContext $context, int $id): RedirectResponse
+    {
+        $site = $context->site();
+        abort_unless($site, 404);
+
+        $folder = MediaFolder::withTrashed()
+            ->where('site_id', $site->id)
+            ->findOrFail($id);
+
+        $folderIds = $this->descendantFolderIdsWithTrashed($folder);
+
+        DB::transaction(function () use ($site, $folder, $folderIds): void {
+            if ($folder->parent_id && MediaFolder::onlyTrashed()
+                ->where('site_id', $site->id)
+                ->whereKey($folder->parent_id)
+                ->exists()) {
+                $folder->forceFill(['parent_id' => null])->save();
+            }
+
+            MediaFolder::withTrashed()
+                ->where('site_id', $site->id)
+                ->whereIn('id', $folderIds)
+                ->restore();
+
+            DB::table('media')
+                ->where('site_id', $site->id)
+                ->whereIn('folder_id', $folderIds)
+                ->whereNotNull('deleted_at')
+                ->update([
+                    'deleted_at' => null,
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return back();
+    }
+
+    public function forceDeleteFolder(AdminContext $context, int $id): RedirectResponse
+    {
+        $site = $context->site();
+        abort_unless($site, 404);
+
+        $folder = MediaFolder::withTrashed()
+            ->where('site_id', $site->id)
+            ->findOrFail($id);
+
+        $folderIds = $this->descendantFolderIdsWithTrashed($folder);
+
+        DB::transaction(function () use ($site, $folderIds): void {
+            Media::withTrashed()
+                ->where('site_id', $site->id)
+                ->whereIn('folder_id', $folderIds)
+                ->get()
+                ->each(fn (Media $media) => $media->forceDelete());
+
+            foreach (array_reverse($folderIds) as $folderId) {
+                MediaFolder::withTrashed()
+                    ->where('site_id', $site->id)
+                    ->whereKey($folderId)
+                    ->first()
+                    ?->forceDelete();
+            }
+        });
+
+        return back();
     }
 
     public function storeMedia(AdminContext $context, Request $request): RedirectResponse|JsonResponse
@@ -210,12 +285,11 @@ class MediaLibraryController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => '圖片已上傳',
                 'items' => $uploaded,
             ]);
         }
 
-        return back()->with('status', '圖片已上傳');
+        return back();
     }
 
     public function updateMedia(AdminContext $context, Request $request, Media $media): RedirectResponse
@@ -239,7 +313,7 @@ class MediaLibraryController extends Controller
             'folder_id' => $data['folder_id'] ?? null,
         ])->save();
 
-        return back()->with('status', '圖片資料已更新');
+        return back();
     }
 
     public function moveMedia(AdminContext $context, Request $request, Media $media): JsonResponse
@@ -259,10 +333,7 @@ class MediaLibraryController extends Controller
             'folder_id' => $data['folder_id'] ?? null,
         ])->save();
 
-        return response()->json([
-            'ok' => true,
-            'message' => '圖片已移動',
-        ]);
+        return response()->json(['ok' => true]);
     }
 
     public function destroyMedia(AdminContext $context, Media $media): RedirectResponse
@@ -275,7 +346,59 @@ class MediaLibraryController extends Controller
             'updated_at' => now(),
         ]);
 
-        return back()->with('status', '圖片已移至垃圾桶');
+        return back();
+    }
+
+    public function bulkAction(AdminContext $context, Request $request): RedirectResponse
+    {
+        $site = $context->site();
+        abort_unless($site, 404);
+
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['destroy', 'restore', 'force_delete'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $ids = array_values(array_unique(array_map('intval', $data['ids'])));
+
+        if ($data['action'] === 'destroy') {
+            DB::table('media')
+                ->where('site_id', $site->id)
+                ->where('collection_name', 'library')
+                ->whereIn('id', $ids)
+                ->whereNull('deleted_at')
+                ->update([
+                    'deleted_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+            return back();
+        }
+
+        if ($data['action'] === 'restore') {
+            DB::transaction(function () use ($site, $ids): void {
+                Media::withTrashed()
+                    ->where('site_id', $site->id)
+                    ->where('collection_name', 'library')
+                    ->whereIn('id', $ids)
+                    ->get()
+                    ->each(function (Media $media) use ($site): void {
+                        $this->restoreMediaWithFolder($site->id, $media);
+                    });
+            });
+
+            return back();
+        }
+
+        Media::withTrashed()
+            ->where('site_id', $site->id)
+            ->where('collection_name', 'library')
+            ->whereIn('id', $ids)
+            ->get()
+            ->each(fn (Media $media) => $media->forceDelete());
+
+        return back();
     }
 
     public function restoreMedia(AdminContext $context, int $id): RedirectResponse
@@ -287,19 +410,11 @@ class MediaLibraryController extends Controller
             ->where('site_id', $site->id)
             ->findOrFail($id);
 
-        $folderId = $media->folder_id;
-        $folderExists = !$folderId || MediaFolder::query()
-            ->where('site_id', $site->id)
-            ->whereKey($folderId)
-            ->exists();
+        DB::transaction(function () use ($site, $media): void {
+            $this->restoreMediaWithFolder($site->id, $media);
+        });
 
-        DB::table('media')->where('id', $media->id)->update([
-            'folder_id' => $folderExists ? $folderId : null,
-            'deleted_at' => null,
-            'updated_at' => now(),
-        ]);
-
-        return back()->with('status', '圖片已還原');
+        return back();
     }
 
     public function forceDeleteMedia(AdminContext $context, int $id): RedirectResponse
@@ -313,7 +428,7 @@ class MediaLibraryController extends Controller
 
         $media->forceDelete();
 
-        return back()->with('status', '圖片已永久刪除');
+        return back();
     }
 
     public function picker(AdminContext $context, Request $request): JsonResponse
@@ -382,6 +497,51 @@ class MediaLibraryController extends Controller
         return $build();
     }
 
+    private function trashedFolders(int $siteId, ?int $parentId = null): Collection
+    {
+        $trashedFolderIds = MediaFolder::onlyTrashed()
+            ->where('site_id', $siteId)
+            ->pluck('id');
+
+        $query = MediaFolder::onlyTrashed()
+            ->where('site_id', $siteId)
+            ->withCount([
+                'children as active_children_count' => fn ($query) => $query->withTrashed(),
+                'media as active_media_count' => fn ($query) => $query->withTrashed(),
+            ])
+            ->orderByDesc('deleted_at')
+            ->orderBy('name');
+
+        if ($parentId) {
+            return $query->where('parent_id', $parentId)->get();
+        }
+
+        return $query
+            ->where(function ($query) use ($trashedFolderIds): void {
+                $query->whereNull('parent_id');
+
+                if ($trashedFolderIds->isNotEmpty()) {
+                    $query->orWhereNotIn('parent_id', $trashedFolderIds);
+                }
+            })
+            ->get();
+    }
+
+    private function trashCount(int $siteId): int
+    {
+        $mediaCount = Media::withTrashed()
+            ->where('site_id', $siteId)
+            ->where('collection_name', 'library')
+            ->whereNotNull('deleted_at')
+            ->count();
+
+        $folderCount = MediaFolder::onlyTrashed()
+            ->where('site_id', $siteId)
+            ->count();
+
+        return $mediaCount + $folderCount;
+    }
+
     /**
      * @return array<int>
      */
@@ -401,6 +561,81 @@ class MediaLibraryController extends Controller
         }
 
         return $ids;
+    }
+
+    /**
+     * @return array<int>
+     */
+    private function descendantFolderIdsWithTrashed(MediaFolder $folder): array
+    {
+        $ids = [$folder->id];
+        $childIds = MediaFolder::withTrashed()
+            ->where('site_id', $folder->site_id)
+            ->where('parent_id', $folder->id)
+            ->pluck('id');
+
+        foreach ($childIds as $childId) {
+            $child = MediaFolder::withTrashed()->find($childId);
+            if ($child) {
+                array_push($ids, ...$this->descendantFolderIdsWithTrashed($child));
+            }
+        }
+
+        return $ids;
+    }
+
+    private function restoreMediaWithFolder(int $siteId, Media $media): void
+    {
+        $folderId = $media->folder_id;
+
+        if ($folderId) {
+            $folderId = $this->restoreFolderChainForMedia($siteId, (int) $folderId);
+        }
+
+        DB::table('media')->where('id', $media->id)->update([
+            'folder_id' => $folderId,
+            'deleted_at' => null,
+            'updated_at' => now(),
+        ]);
+    }
+
+    private function restoreFolderChainForMedia(int $siteId, int $folderId): ?int
+    {
+        $chain = [];
+        $current = MediaFolder::withTrashed()
+            ->where('site_id', $siteId)
+            ->find($folderId);
+
+        while ($current) {
+            $chain[] = $current;
+
+            if (!$current->parent_id) {
+                break;
+            }
+
+            $parent = MediaFolder::withTrashed()
+                ->where('site_id', $siteId)
+                ->find($current->parent_id);
+
+            if (!$parent) {
+                $current->forceFill(['parent_id' => null])->save();
+                break;
+            }
+
+            $current = $parent;
+        }
+
+        if (empty($chain)) {
+            return null;
+        }
+
+        foreach (array_reverse($chain) as $folder) {
+            if ($folder->trashed()) {
+                $folder->restore();
+            }
+        }
+
+        return $folderId;
     }
 
     private function uniqueFolderSlug(int $siteId, ?int $parentId, string $name, ?int $ignoreId = null): string

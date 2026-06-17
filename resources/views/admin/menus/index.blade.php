@@ -1,11 +1,20 @@
 @extends('admin.partials.shell')
 
+@php
+    $languageParams = ($languageEnabled ?? false) ? ($languageParams ?? array_filter(['language' => $languageContext['slug'] ?? null])) : [];
+    $locationLabel = match ($location) {
+        'frontend' => '前端選單',
+        'footer' => '頁尾選單',
+        default => '後端選單',
+    };
+@endphp
+
 @section('title', 'CMS 選單管理')
 @section('page_title', 'CMS 選單管理')
 
 @section('breadcrumb')
     <li><span>選單管理</span></li>
-    <li><span>{{ $parent ? '後端選單子層列表' : '後端選單列表' }}</span></li>
+    <li><span>{{ $parent ? $locationLabel . '子層列表' : $locationLabel . '列表' }}</span></li>
 @endsection
 
 @section('content')
@@ -15,27 +24,42 @@
             <div class="col-12 col-lg-auto mb-3 mb-lg-0">
                 @if($parent)
                     <span class="me-3">目前位置：{{ $parent->pathLabel() }}</span>
-                    <a href="{{ route('admin.menus.index', array_filter(['location' => $location, 'parent_id' => $parent->parent_id])) }}" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
+                    <a href="{{ route('admin.menus.index', array_filter(['location' => $location, 'parent_id' => $parent->parent_id, ...$languageParams])) }}" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
                         <i class="fas fa-arrow-left"></i> 返回上一層
                     </a>
                 @else
                     <span class="me-3">目前位置：頂層選單</span>
                 @endif
 
-                <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.menus.create', array_filter(['location' => $location, 'parent_id' => $parent?->id])) }}">
+                <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.menus.create', array_filter(['location' => $location, 'parent_id' => $parent?->id, ...$languageParams])) }}">
                     <i class="fas fa-plus-circle"></i> 新增
                 </a>
 
                 @if($trash ?? false)
-                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.menus.index', array_filter(['location' => $location, 'parent_id' => $parent?->id])) }}">
+                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.menus.index', array_filter(['location' => $location, 'parent_id' => $parent?->id, ...$languageParams])) }}">
                         <i class="fas fa-list"></i> 返回列表
                     </a>
                 @else
-                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.menus.index', array_filter(['location' => $location, 'parent_id' => $parent?->id, 'trash' => 1])) }}">
+                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.menus.index', array_filter(['location' => $location, 'parent_id' => $parent?->id, 'trash' => 1, ...$languageParams])) }}">
                         <i class="fas fa-trash-alt"></i> 垃圾桶 ({{ $trashCount ?? 0 }})
                     </a>
                 @endif
             </div>
+
+            @if(($languageEnabled ?? false) && ($languageContext['languages'] ?? collect())->count() > 1)
+                <div class="col-12 col-lg-auto ms-auto mb-3 mb-lg-0">
+                    <ul class="nav nav-pills nav-pills-primary justify-content-lg-end">
+                        @foreach($languageContext['languages'] as $language)
+                            <li class="nav-item">
+                                <a @class(['nav-link py-1 px-3', 'active' => ($languageContext['slug'] ?? null) === $language->slug])
+                                   href="{{ route('admin.menus.index', array_merge(request()->except(['page', 'language', 'trash']), ['language' => $language->slug])) }}">
+                                    {{ $language->name }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </div>
 
         <div class="card card-modern">
@@ -44,6 +68,9 @@
                     <div class="datatable-header">
                         <form method="get" class="row align-items-center mb-3">
                             <input type="hidden" name="location" value="{{ $location }}">
+                            @if($languageEnabled ?? false)
+                                <input type="hidden" name="language" value="{{ $languageContext['slug'] ?? '' }}">
+                            @endif
                             @if($parent)
                                 <input type="hidden" name="parent_id" value="{{ $parent->id }}">
                             @endif
@@ -98,7 +125,7 @@
                                             @endfor
                                         </select>
                                     </td>
-                                    <td><a href="{{ route('admin.menus.edit', $menu) }}">{{ $menu->title }}</a></td>
+                                    <td><a href="{{ route('admin.menus.edit', [$menu, ...$languageParams]) }}">{{ $menu->title }}</a></td>
                                     <td>{{ $menu->module_key ?: $menu->type }}</td>
                                     <td>{{ $menu->url ?: $menu->route_name }}</td>
                                     <td>
@@ -107,29 +134,29 @@
                                         </span>
                                     </td>
                                     <td>
-                                        <a href="{{ route('admin.menus.index', ['location' => $location, 'parent_id' => $menu->id]) }}" class="btn btn-primary" title="下一層">
+                                        <a href="{{ route('admin.menus.index', ['location' => $location, 'parent_id' => $menu->id, ...$languageParams]) }}" class="btn btn-primary" title="下一層">
                                             <i class="fas fa-level-down-alt"></i>
                                         </a>
                                     </td>
 
                                     @if($trash ?? false)
                                         <td>
-                                            <form method="post" action="{{ route('admin.menus.restore', $menu->id) }}" class="js-menu-restore-form">
+                                            <form method="post" action="{{ route('admin.menus.restore', [$menu->id, ...$languageParams]) }}" class="js-menu-restore-form">
                                                 @csrf
                                                 <button class="btn btn-success" type="submit" title="還原"><i class="fas fa-undo"></i></button>
                                             </form>
                                         </td>
                                         <td>
-                                            <form method="post" action="{{ route('admin.menus.force-delete', $menu->id) }}" class="js-menu-force-delete-form">
+                                            <form method="post" action="{{ route('admin.menus.force-delete', [$menu->id, ...$languageParams]) }}" class="js-menu-force-delete-form">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-danger" type="submit" title="永久刪除"><i class="fas fa-trash-alt"></i></button>
                                             </form>
                                         </td>
                                     @else
-                                        <td><a class="btn btn-info" href="{{ route('admin.menus.edit', $menu) }}" title="編輯"><i class="fas fa-edit"></i></a></td>
+                                        <td><a class="btn btn-info" href="{{ route('admin.menus.edit', [$menu, ...$languageParams]) }}" title="編輯"><i class="fas fa-edit"></i></a></td>
                                         <td>
-                                            <form method="post" action="{{ route('admin.menus.destroy', $menu) }}" class="js-menu-delete-form">
+                                            <form method="post" action="{{ route('admin.menus.destroy', [$menu, ...$languageParams]) }}" class="js-menu-delete-form">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-danger" type="submit" title="刪除"><i class="fas fa-trash-alt"></i></button>
@@ -321,7 +348,7 @@
             }
 
             try {
-                const data = await postJson(@json(route('admin.menus.bulk-action')), { action, ids });
+                const data = await postJson(@json(route('admin.menus.bulk-action', $languageParams)), { action, ids });
                 if (data.redirect_url) {
                     window.location.href = data.redirect_url;
                     return;

@@ -7,6 +7,7 @@ use App\Models\Content;
 use App\Models\ContentType;
 use App\Models\HomeDisplay;
 use App\Support\AdminContext;
+use App\Support\AdminLanguage;
 use App\Support\CmsSetLoader;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -22,11 +23,14 @@ class HomeDisplayController extends Controller
         abort_unless($site, 404);
 
         $config = $this->config();
-        $locale = $site->default_locale;
-        $targetModule = (string) ($config['targetModule'] ?? 'news');
+        $languageContext = AdminLanguage::context($site, $request);
+        $locale = $languageContext['locale'];
+        $targetModule = $this->targetModule($config);
+        $targetContentType = $this->targetContentType($config);
+        $targetResource = $this->targetResource($config);
         $keyword = trim((string) $request->query('search', ''));
 
-        $query = $this->contentQuery($site->id, $targetModule, $locale)
+        $query = $this->contentQuery($site->id, $targetContentType, $locale)
             ->when($keyword !== '', fn (Builder $builder) => $builder->whereHas('translations', fn (Builder $translation) => $translation
                 ->where('locale', $locale)
                 ->where(function (Builder $q) use ($keyword): void {
@@ -56,21 +60,25 @@ class HomeDisplayController extends Controller
             'sites' => $context->sites(),
             'config' => $config,
             'targetModule' => $targetModule,
+            'targetResource' => $targetResource,
+            'languageContext' => $languageContext,
+            'languageParams' => ['language' => $languageContext['slug']],
             'keyword' => $keyword,
             'items' => $items,
             'displayCount' => $this->displayCount($site->id, $targetModule, $locale),
         ]);
     }
 
-    public function toggle(AdminContext $context, Content $content): JsonResponse
+    public function toggle(AdminContext $context, Request $request, Content $content): JsonResponse
     {
         $site = $context->site();
         abort_unless($site && (int) $content->site_id === (int) $site->id, 404);
 
         $config = $this->config();
-        $targetModule = (string) ($config['targetModule'] ?? 'news');
-        $locale = $site->default_locale;
-        $this->authorizeContentModule($content, $site->id, $targetModule);
+        $targetModule = $this->targetModule($config);
+        $targetContentType = $this->targetContentType($config);
+        $locale = AdminLanguage::context($site, $request)['locale'];
+        $this->authorizeContentModule($content, $site->id, $targetContentType);
 
         $display = HomeDisplay::query()
             ->where('site_id', $site->id)
@@ -112,9 +120,10 @@ class HomeDisplayController extends Controller
         abort_unless($site && (int) $content->site_id === (int) $site->id, 404);
 
         $config = $this->config();
-        $targetModule = (string) ($config['targetModule'] ?? 'news');
-        $locale = $site->default_locale;
-        $this->authorizeContentModule($content, $site->id, $targetModule);
+        $targetModule = $this->targetModule($config);
+        $targetContentType = $this->targetContentType($config);
+        $locale = AdminLanguage::context($site, $request)['locale'];
+        $this->authorizeContentModule($content, $site->id, $targetContentType);
 
         $data = $request->validate([
             'sort_order' => ['required', 'integer', 'min:1'],
@@ -166,6 +175,24 @@ class HomeDisplayController extends Controller
         return $config;
     }
 
+    private function targetModule(array $config): string
+    {
+        $module = $config['targetModule'] ?? null;
+        abort_unless(is_string($module) && $module !== '', 500, 'homeDisplaySet.php missing targetModule.');
+
+        return $module;
+    }
+
+    private function targetContentType(array $config): string
+    {
+        return (string) ($config['targetContentType'] ?? $this->targetModule($config));
+    }
+
+    private function targetResource(array $config): string
+    {
+        return (string) ($config['targetResource'] ?? $this->targetModule($config));
+    }
+
     private function contentQuery(int $siteId, string $module, string $locale): Builder
     {
         $contentTypeId = ContentType::query()
@@ -178,6 +205,7 @@ class HomeDisplayController extends Controller
         return Content::query()
             ->where('contents.site_id', $siteId)
             ->where('contents.content_type_id', $contentTypeId)
+            ->whereHas('translations', fn (Builder $query) => $query->where('locale', $locale))
             ->with(['translations' => fn ($query) => $query->where('locale', $locale)]);
     }
 

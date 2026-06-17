@@ -5,6 +5,7 @@
     $termNameColumn = collect($taxonomyConfig['list_columns'] ?? [])->firstWhere('key', 'name');
     $termNameLabel = $termNameColumn['label'] ?? '分類名稱';
     $listTitle = $taxonomyConfig['listPage']['title'] ?? '分類列表';
+    $languageParams = ($languageEnabled ?? false) ? ($languageParams ?? array_filter(['language' => $languageContext['slug'] ?? null])) : [];
 @endphp
 
 @section('title', $taxonomyModel->name)
@@ -22,25 +23,40 @@
             <div class="col-12 col-lg-auto mb-3 mb-lg-0">
                 @if($useHierarchy && $parent)
                     <span class="me-3">目前位置：{{ $parent->pathLabel() }}</span>
-                    <a href="{{ route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parent->parent_id])) }}" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
+                    <a href="{{ route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parent->parent_id, ...$languageParams])) }}" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
                         <i class="fas fa-arrow-left"></i> 返回上一層
                     </a>
                 @endif
 
-                <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.taxonomies.create', array_filter([$taxonomy, 'parent_id' => $parent?->id])) }}">
+                <a class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.taxonomies.create', array_filter([$taxonomy, 'parent_id' => $parent?->id, ...$languageParams])) }}">
                     <i class="fas fa-plus-circle"></i> 新增
                 </a>
 
                 @if($trash ?? false)
-                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parent?->id])) }}">
+                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parent?->id, ...$languageParams])) }}">
                         <i class="fas fa-list"></i> 返回列表
                     </a>
                 @else
-                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parent?->id, 'trash' => 1])) }}">
+                    <a class="btn btn-light btn-md font-weight-semibold btn-py-2 px-4" href="{{ route('admin.taxonomies.index', array_filter([$taxonomy, 'parent_id' => $parent?->id, 'trash' => 1, ...$languageParams])) }}">
                         <i class="fas fa-trash-alt"></i> 垃圾桶 ({{ $trashCount ?? 0 }})
                     </a>
                 @endif
             </div>
+
+            @if(($languageEnabled ?? false) && ($languageContext['languages'] ?? collect())->count() > 1)
+                <div class="col-12 col-lg-auto ms-auto mb-3 mb-lg-0">
+                    <ul class="nav nav-pills nav-pills-primary justify-content-lg-end">
+                        @foreach($languageContext['languages'] as $language)
+                            <li class="nav-item">
+                                <a @class(['nav-link py-1 px-3', 'active' => ($languageContext['slug'] ?? null) === $language->slug])
+                                   href="{{ route('admin.taxonomies.index', array_merge([$taxonomy], request()->except(['page', 'language', 'trash']), ['language' => $language->slug])) }}">
+                                    {{ $language->name }}
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </div>
 
         <div class="card card-modern">
@@ -48,6 +64,9 @@
                 <div class="datatables-header-footer-wrapper dataTables_wrapper mt-2">
                     <div class="datatable-header">
                         <form method="get" class="row align-items-center mb-3">
+                            @if($languageEnabled ?? false)
+                                <input type="hidden" name="language" value="{{ $languageContext['slug'] ?? '' }}">
+                            @endif
                             @if($trash ?? false)
                                 <input type="hidden" name="trash" value="1">
                             @endif
@@ -107,11 +126,11 @@
                                     </td>
                                     <td>{{ optional($term->created_at)->format('Y-m-d H:i:s') }}</td>
                                     <td>
-                                        <a href="{{ route('admin.taxonomies.edit', [$taxonomy, $term]) }}">{{ $term->name }}</a>
+                                        <a href="{{ route('admin.taxonomies.edit', [$taxonomy, $term, ...$languageParams]) }}">{{ $term->name }}</a>
                                     </td>
                                     @if($useHierarchy)
                                         <td>
-                                            <a href="{{ route('admin.taxonomies.index', [$taxonomy, 'parent_id' => $term->id]) }}" class="btn btn-primary" title="下一層">
+                                            <a href="{{ route('admin.taxonomies.index', [$taxonomy, 'parent_id' => $term->id, ...$languageParams]) }}" class="btn btn-primary" title="下一層">
                                                 <i class="fas fa-level-down-alt"></i>
                                             </a>
                                         </td>
@@ -124,22 +143,22 @@
 
                                     @if($trash ?? false)
                                         <td>
-                                            <form method="post" action="{{ route('admin.taxonomies.restore', [$taxonomy, $term->id]) }}" class="js-taxonomy-restore-form">
+                                            <form method="post" action="{{ route('admin.taxonomies.restore', [$taxonomy, $term->id, ...$languageParams]) }}" class="js-taxonomy-restore-form">
                                                 @csrf
                                                 <button class="btn btn-success" type="submit" title="還原"><i class="fas fa-undo"></i></button>
                                             </form>
                                         </td>
                                         <td>
-                                            <form method="post" action="{{ route('admin.taxonomies.force-delete', [$taxonomy, $term->id]) }}" class="js-taxonomy-force-delete-form">
+                                            <form method="post" action="{{ route('admin.taxonomies.force-delete', [$taxonomy, $term->id, ...$languageParams]) }}" class="js-taxonomy-force-delete-form">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-danger" type="submit" title="永久刪除"><i class="fas fa-trash-alt"></i></button>
                                             </form>
                                         </td>
                                     @else
-                                        <td><a class="btn btn-info" href="{{ route('admin.taxonomies.edit', [$taxonomy, $term]) }}" title="編輯"><i class="fas fa-edit"></i></a></td>
+                                        <td><a class="btn btn-info" href="{{ route('admin.taxonomies.edit', [$taxonomy, $term, ...$languageParams]) }}" title="編輯"><i class="fas fa-edit"></i></a></td>
                                         <td>
-                                            <form method="post" action="{{ route('admin.taxonomies.destroy', [$taxonomy, $term]) }}" class="js-taxonomy-delete-form">
+                                            <form method="post" action="{{ route('admin.taxonomies.destroy', [$taxonomy, $term, ...$languageParams]) }}" class="js-taxonomy-delete-form">
                                                 @csrf
                                                 @method('DELETE')
                                                 <button class="btn btn-danger" type="submit" title="刪除"><i class="fas fa-trash-alt"></i></button>
@@ -168,10 +187,18 @@
                                                 <option value="force_delete">批次永久刪除</option>
                                             @else
                                                 <option value="delete">批次移至垃圾桶</option>
+                                                <option value="clone_local">複製資料</option>
+                                                @if($languageEnabled ?? false)
+                                                    <option value="clone">複製到語系</option>
+                                                @endif
                                             @endif
                                         </select>
-                                        <select class="form-control select-style-1 bulk-action-lang d-none" name="target_lang" style="min-width: 140px;">
+                                        <select class="form-control select-style-1 bulk-action-lang d-none" name="target_lang" style="min-width: 170px;">
                                             <option value="">選擇語系...</option>
+                                            @foreach(($languageContext['languages'] ?? collect()) as $language)
+                                                @continue(($languageContext['slug'] ?? null) === $language->slug)
+                                                <option value="{{ $language->slug }}">{{ $language->name }}</option>
+                                            @endforeach
                                         </select>
                                         <a href="javascript:void(0);" class="bulk-action-apply btn btn-light btn-px-4 py-3 border font-weight-semibold text-color-dark text-3" style="min-width: 90px;">執行</a>
                                     </div>
@@ -207,14 +234,15 @@
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrfToken,
                 },
                 body: JSON.stringify(payload || {}),
             });
 
             const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                const error = new Error('Request failed');
+            if (!response.ok || response.redirected) {
+                const error = new Error(data.message || '操作失敗');
                 error.data = data;
                 throw error;
             }
@@ -228,14 +256,15 @@
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrfToken,
                 },
                 body: JSON.stringify(payload),
             });
 
             const data = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                const error = new Error('Request failed');
+            if (!response.ok || response.redirected) {
+                const error = new Error(data.message || '操作失敗');
                 error.data = data;
                 throw error;
             }
@@ -375,12 +404,23 @@
                 if (!confirmed) return;
             }
 
+            const payload = { action, ids };
+            const bulkLang = document.querySelector('.bulk-action-lang');
+            if (action === 'clone') {
+                payload.target_language = bulkLang?.value || '';
+                if (!payload.target_language) {
+                    await Swal.fire('提醒', '請先選擇目標語系', 'warning');
+                    return;
+                }
+            }
+
             try {
-                const data = await postJson(@json(route("admin.taxonomies.bulk-action", $taxonomy)), { action, ids });
+                const data = await postJson(@json(route("admin.taxonomies.bulk-action", [$taxonomy, ...$languageParams])), payload);
                 if ((data.needs_confirm || data.needs_force) && await confirmTaxonomyImpact(data, data.needs_force)) {
-                    redirectAfterTaxonomyAction(await postJson(@json(route("admin.taxonomies.bulk-action", $taxonomy)), {
+                    redirectAfterTaxonomyAction(await postJson(@json(route("admin.taxonomies.bulk-action", [$taxonomy, ...$languageParams])), {
                         action,
                         ids,
+                        target_language: payload.target_language || '',
                         confirm: data.needs_confirm,
                         force: data.needs_force,
                     }));
@@ -389,7 +429,14 @@
                 redirectAfterTaxonomyAction(data);
             } catch (error) {
                 console.error(error);
+                await Swal.fire('錯誤', error?.data?.message || error.message || '操作失敗', 'error');
             }
+        });
+
+        const bulkAction = document.querySelector('.bulk-action');
+        const bulkLang = document.querySelector('.bulk-action-lang');
+        bulkAction?.addEventListener('change', function () {
+            bulkLang?.classList.toggle('d-none', bulkAction.value !== 'clone');
         });
     });
 </script>
