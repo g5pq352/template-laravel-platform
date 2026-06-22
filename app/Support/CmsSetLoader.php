@@ -13,6 +13,8 @@ class CmsSetLoader
     public static function all(?string $pageType = null, ?Site $site = null): array
     {
         $modules = [];
+        $sharedPath = self::sharedPath();
+        $sharedSetModules = self::sharedSetModules();
 
         foreach (self::paths($site) as $path) {
             foreach (glob($path . '/*Set.php') ?: [] as $file) {
@@ -28,6 +30,10 @@ class CmsSetLoader
                 }
 
                 $key = $config['resource'] ?? $config['adminKey'] ?? $config['module'] ?? self::keyFromFilename($file);
+                if ($path !== $sharedPath && in_array($key, $sharedSetModules, true)) {
+                    continue;
+                }
+
                 $modules[$key] = $config;
             }
         }
@@ -101,6 +107,17 @@ class CmsSetLoader
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function sharedSetModules(): array
+    {
+        return array_values(array_filter(array_map(
+            fn (mixed $module): string => trim((string) $module),
+            config('cms.platform.shared_set_modules', [])
+        )));
     }
 
     private static function keyFromFilename(string $file): string

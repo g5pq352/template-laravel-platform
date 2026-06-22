@@ -236,6 +236,21 @@ return [
     ],
 ];
 PHP);
+        file_put_contents($setPath . DIRECTORY_SEPARATOR . 'keywordsInfoSet.php', <<<'PHP'
+<?php
+
+return [
+    'moduleName' => '不應覆蓋的站台全站設定',
+    'detailPage' => [
+        [
+            'sheetTitle' => '資料設定',
+            'items' => [
+                ['type' => 'text', 'field' => 'd_title', 'label' => '網站名稱'],
+            ],
+        ],
+    ],
+];
+PHP);
 
         $site = Site::query()->create([
             'tenant_id' => $tenant->id,
@@ -249,8 +264,10 @@ PHP);
         ]);
 
         $config = CmsSetLoader::get('news', 'list', $site);
+        $sharedConfig = CmsSetLoader::get('keywordsInfo', 'info', $site);
 
         $this->assertSame('站台專屬消息', $config['moduleName'] ?? null);
+        $this->assertNotSame('不應覆蓋的站台全站設定', $sharedConfig['moduleName'] ?? null);
     }
 
     private function adminAndTenant(): array
