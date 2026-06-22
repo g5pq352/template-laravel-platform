@@ -60,6 +60,11 @@ class Site extends Model implements HasMedia
         return $this->hasMany(MediaFolder::class);
     }
 
+    public function isMainSite(): bool
+    {
+        return $this->slug === config('cms.platform.main_site_slug', 'main-site');
+    }
+
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('library')->useDisk('public');

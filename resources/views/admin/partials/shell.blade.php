@@ -14,6 +14,7 @@
     $isMediaLibrary = request()->routeIs('admin.media-library.*');
     $isMenus = request()->routeIs('admin.menus.*');
     $isSites = request()->routeIs('admin.sites.*');
+    $isMainSite = isset($site) && $site?->isMainSite();
     $siteSwitchRedirect = $isSites ? route('admin.dashboard') : request()->fullUrl();
 
     $menuLocation = request()->query('location', 'backend');
@@ -24,6 +25,7 @@
             ->where('site_id', $site->id)
             ->where('location', 'backend')
             ->where('is_active', true)
+            ->when(!$isMainSite, fn ($query) => $query->where('module_key', '!=', 'sites'))
             ->orderByRaw('parent_id is not null')
             ->orderBy('parent_id')
             ->orderBy('sort_order')
@@ -230,12 +232,14 @@
                                     </a>
                                 </li>
 
-                                <li @class(['nav-active' => $isSites])>
-                                    <a class="nav-link" href="{{ route('admin.sites.index') }}">
-                                        <i class="bx bx-buildings" aria-hidden="true"></i>
-                                        <span>多站管理</span>
-                                    </a>
-                                </li>
+                                @if($isMainSite)
+                                    <li @class(['nav-active' => $isSites])>
+                                        <a class="nav-link" href="{{ route('admin.sites.index') }}">
+                                            <i class="bx bx-buildings" aria-hidden="true"></i>
+                                            <span>多站管理</span>
+                                        </a>
+                                    </li>
+                                @endif
 
                                 <li class="nav-parent">
                                     <a class="nav-link" href="#">

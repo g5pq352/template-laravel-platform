@@ -84,10 +84,15 @@ class AdminSiteManagementTest extends TestCase
             'name' => '最新消息分類',
         ]);
         $this->assertDatabaseHas('cms_menus', [
-            'site_id' => $site->id,
+            'site_id' => Site::query()->where('slug', 'main-site')->value('id'),
             'location' => 'backend',
             'module_key' => 'sites',
             'title' => '多站管理',
+        ]);
+        $this->assertDatabaseMissing('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'sites',
         ]);
     }
 
@@ -121,7 +126,7 @@ class AdminSiteManagementTest extends TestCase
     public function test_admin_can_switch_current_site_from_header(): void
     {
         [$admin, $tenant] = $this->adminAndTenant();
-        $baseSite = Site::query()->where('slug', 'base-test-site')->firstOrFail();
+        $baseSite = Site::query()->where('slug', 'main-site')->firstOrFail();
         $targetSite = Site::query()->create([
             'tenant_id' => $tenant->id,
             'name' => 'Target Switch Site',
@@ -167,6 +172,28 @@ class AdminSiteManagementTest extends TestCase
             ->assertRedirect(route('admin.dashboard'));
     }
 
+    public function test_child_site_cannot_access_site_management(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $childSite = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Child Site',
+            'slug' => 'child-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8)),
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+        ]);
+
+        $this
+            ->withSession([
+                'admin_user_id' => $admin->id,
+                'current_site_id' => $childSite->id,
+            ])
+            ->get(route('admin.sites.index'))
+            ->assertForbidden();
+    }
+
     private function adminAndTenant(): array
     {
         $this->ensureSchema();
@@ -185,17 +212,43 @@ class AdminSiteManagementTest extends TestCase
             ]
         );
 
-        Site::query()->firstOrCreate(
-            ['slug' => 'base-test-site'],
+        $mainSite = Site::query()->firstOrCreate(
+            ['slug' => 'main-site'],
             [
                 'tenant_id' => $tenant->id,
-                'name' => 'Base Test Site',
+                'name' => '主網站',
                 'status' => 'active',
                 'default_locale' => 'zh-Hant-TW',
                 'timezone' => 'Asia/Taipei',
                 'currency_code' => 'TWD',
             ]
         );
+
+        if (Schema::hasTable('cms_menus')) {
+            \Illuminate\Support\Facades\DB::table('cms_menus')->updateOrInsert(
+                [
+                    'site_id' => $mainSite->id,
+                    'location' => 'backend',
+                    'parent_id' => null,
+                    'module_key' => 'sites',
+                ],
+                [
+                    'locale' => 'zh-Hant-TW',
+                    'title' => '多站管理',
+                    'type' => 'route',
+                    'url' => null,
+                    'route_name' => 'admin.sites.index',
+                    'icon' => 'bx bx-buildings',
+                    'target' => '_self',
+                    'is_active' => true,
+                    'sort_order' => 99,
+                    'settings' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                    'deleted_at' => null,
+                ]
+            );
+        }
 
         return [$admin, $tenant];
     }

@@ -20,6 +20,8 @@ class SiteController extends Controller
 {
     public function index(AdminContext $context, Request $request): View
     {
+        $this->authorizeMainSite($context);
+
         $keyword = trim((string) $request->query('keyword', ''));
         $status = (string) $request->query('status', '');
 
@@ -50,6 +52,8 @@ class SiteController extends Controller
 
     public function create(AdminContext $context): View
     {
+        $this->authorizeMainSite($context);
+
         return view('admin.sites.form', [
             'admin' => $context->user(),
             'site' => $context->site(),
@@ -70,6 +74,8 @@ class SiteController extends Controller
 
     public function store(AdminContext $context, Request $request, SiteBootstrapper $bootstrapper): RedirectResponse
     {
+        $this->authorizeMainSite($context);
+
         $data = $this->validatedData($request);
 
         $site = DB::transaction(function () use ($data, $bootstrapper): Site {
@@ -89,6 +95,8 @@ class SiteController extends Controller
 
     public function edit(AdminContext $context, Site $site): View
     {
+        $this->authorizeMainSite($context);
+
         $site->load(['domains' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('domain')]);
 
         return view('admin.sites.form', [
@@ -112,6 +120,8 @@ class SiteController extends Controller
 
     public function update(AdminContext $context, Request $request, Site $site): RedirectResponse
     {
+        $this->authorizeMainSite($context);
+
         $data = $this->validatedData($request, $site);
 
         DB::transaction(function () use ($site, $data): void {
@@ -130,6 +140,8 @@ class SiteController extends Controller
 
     public function destroy(AdminContext $context, Request $request, Site $site): RedirectResponse|JsonResponse
     {
+        $this->authorizeMainSite($context);
+
         abort_if(Site::query()->count() <= 1, 422, '至少需要保留一個站台');
 
         if ($this->siteHasManagedData($site)) {
@@ -176,6 +188,11 @@ class SiteController extends Controller
     private function tenants()
     {
         return Tenant::query()->where('status', 'active')->orderBy('name')->get();
+    }
+
+    private function authorizeMainSite(AdminContext $context): void
+    {
+        abort_unless($context->site()?->isMainSite(), 403, '多站管理只能在主站使用。');
     }
 
     private function validatedData(Request $request, ?Site $site = null): array

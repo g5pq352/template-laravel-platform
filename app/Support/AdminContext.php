@@ -38,7 +38,9 @@ class AdminContext
             return $site;
         }
 
-        $site = $this->sites()->first();
+        $mainSiteSlug = config('cms.platform.main_site_slug', 'main-site');
+        $site = $this->sites()->firstWhere('slug', $mainSiteSlug)
+            ?? $this->sites()->first();
 
         if ($site) {
             $this->request->session()->put('current_site_id', $site->id);

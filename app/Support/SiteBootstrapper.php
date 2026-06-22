@@ -80,7 +80,7 @@ class SiteBootstrapper
         $locale = $site->default_locale ?: 'zh-Hant-TW';
         $parents = [];
 
-        foreach ($this->defaultBackendMenus() as $index => $menu) {
+        foreach ($this->defaultBackendMenus($site) as $index => $menu) {
             $parents[$menu['module_key']] = CmsMenu::query()->updateOrCreate(
                 [
                     'site_id' => $site->id,
@@ -167,9 +167,9 @@ class SiteBootstrapper
         ];
     }
 
-    private function defaultBackendMenus(): array
+    private function defaultBackendMenus(Site $site): array
     {
-        return [
+        $menus = [
             ['title' => 'Dashboard', 'module_key' => 'dashboard', 'route_name' => 'admin.dashboard', 'icon' => 'bx bx-home-alt'],
             ['title' => '圖片庫', 'module_key' => 'media-library', 'route_name' => 'admin.media-library.index', 'icon' => 'bx bx-images'],
             ['title' => '首頁', 'module_key' => 'home', 'url' => '#', 'icon' => 'bx bx-file'],
@@ -181,6 +181,10 @@ class SiteBootstrapper
             ['title' => '權限管理', 'module_key' => 'permissions', 'url' => '#', 'icon' => 'bx bx-user-circle'],
             ['title' => '選單管理', 'module_key' => 'menus', 'route_name' => 'admin.menus.index', 'icon' => 'fas fa-bars'],
         ];
+
+        return $site->isMainSite()
+            ? $menus
+            : array_values(array_filter($menus, fn (array $menu) => $menu['module_key'] !== 'sites'));
     }
 
     private function defaultBackendChildMenus(): array
