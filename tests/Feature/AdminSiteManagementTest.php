@@ -66,6 +66,28 @@ class AdminSiteManagementTest extends TestCase
             'domain' => $slug . '.secondary.test',
             'is_primary' => false,
         ]);
+        $this->assertDatabaseHas('languages', [
+            'site_id' => $site->id,
+            'slug' => 'tw',
+            'locale' => 'zh-Hant-TW',
+            'is_default' => true,
+        ]);
+        $this->assertDatabaseHas('content_types', [
+            'site_id' => $site->id,
+            'code' => 'news',
+            'name' => '最新消息',
+        ]);
+        $this->assertDatabaseHas('taxonomies', [
+            'site_id' => $site->id,
+            'code' => 'newsCate',
+            'name' => '最新消息分類',
+        ]);
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'sites',
+            'title' => '多站管理',
+        ]);
     }
 
     public function test_site_with_managed_data_cannot_be_deleted(): void
@@ -188,6 +210,55 @@ class AdminSiteManagementTest extends TestCase
                 $table->string('name');
                 $table->boolean('is_active')->default(true);
                 $table->json('config')->nullable();
+                $table->timestamps();
+            });
+        }
+
+        if (!Schema::hasTable('languages')) {
+            Schema::create('languages', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('site_id');
+                $table->string('name');
+                $table->string('name_en')->nullable();
+                $table->string('slug', 40);
+                $table->string('locale', 40);
+                $table->boolean('is_default')->default(false);
+                $table->boolean('is_active')->default(true);
+                $table->unsignedInteger('sort_order')->default(0);
+                $table->softDeletes();
+                $table->timestamps();
+            });
+        }
+
+        if (!Schema::hasTable('taxonomies')) {
+            Schema::create('taxonomies', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('site_id');
+                $table->string('code');
+                $table->string('name');
+                $table->boolean('is_hierarchical')->default(false);
+                $table->timestamps();
+            });
+        }
+
+        if (!Schema::hasTable('cms_menus')) {
+            Schema::create('cms_menus', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('site_id');
+                $table->foreignId('parent_id')->nullable();
+                $table->string('location')->default('backend');
+                $table->string('locale', 40)->default('zh-Hant-TW');
+                $table->string('title');
+                $table->string('type')->default('custom');
+                $table->string('url')->nullable();
+                $table->string('route_name')->nullable();
+                $table->string('module_key')->nullable();
+                $table->string('icon')->nullable();
+                $table->string('target')->default('_self');
+                $table->boolean('is_active')->default(true);
+                $table->unsignedInteger('sort_order')->default(1);
+                $table->json('settings')->nullable();
+                $table->softDeletes();
                 $table->timestamps();
             });
         }

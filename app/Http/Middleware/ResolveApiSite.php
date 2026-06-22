@@ -17,10 +17,18 @@ class ResolveApiSite
 
         abort_unless($site, 404, 'Site not found.');
 
+        if (!$this->originIsAllowed($request, $site)) {
+            return response()->json(['message' => 'API origin not allowed.'], 403);
+        }
+
         $request->attributes->set('site', $site);
         $request->attributes->set('site_id', $site->id);
 
-        return $next($request);
+        if ($request->isMethod('OPTIONS')) {
+            return $this->withCorsHeaders(response()->noContent(), $request, $site);
+        }
+
+        return $this->withCorsHeaders($next($request), $request, $site);
     }
 
     private function resolveSite(Request $request): ?Site
@@ -47,5 +55,91 @@ class ResolveApiSite
         });
 
         return $siteId ? Site::query()->find($siteId) : null;
+    }
+
+    private function originIsAllowed(Request $request, Site $site): bool
+    {
+        $allowedOrigins = $this->allowedOrigins($site);
+
+        if ($allowedOrigins === []) {
+            return true;
+        }
+
+        $requestOrigin = $this->requestOrigin($request);
+
+        return $requestOrigin !== null && in_array($requestOrigin, $allowedOrigins, true);
+    }
+
+    private function allowedOrigins(Site $site): array
+    {
+        return collect($site->settings['api_allowed_origins'] ?? [])
+            ->map(fn (string $origin) => $this->normalizeOrigin($origin))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function requestOrigin(Request $request): ?string
+    {
+        $origin = $request->headers->get('Origin');
+        if ($origin) {
+            return $this->normalizeOrigin($origin);
+        }
+
+        $referer = $request->headers->get('Referer');
+        if (!$referer) {
+            return null;
+        }
+
+        $parts = parse_url($referer);
+        if (empty($parts['scheme']) || empty($parts['host'])) {
+            return null;
+        }
+
+        $origin = $parts['scheme'] . '://' . $parts['host'];
+        if (!empty($parts['port'])) {
+            $origin .= ':' . $parts['port'];
+        }
+
+        return $this->normalizeOrigin($origin);
+    }
+
+    private function normalizeOrigin(string $origin): ?string
+    {
+        $origin = trim($origin);
+        if ($origin === '') {
+            return null;
+        }
+
+        $parts = parse_url($origin);
+        if (empty($parts['scheme']) || empty($parts['host'])) {
+            return null;
+        }
+
+        $normalized = strtolower($parts['scheme']) . '://' . strtolower($parts['host']);
+        if (!empty($parts['port'])) {
+            $normalized .= ':' . $parts['port'];
+        }
+
+        return $normalized;
+    }
+
+    private function withCorsHeaders(Response $response, Request $request, Site $site): Response
+    {
+        $allowedOrigins = $this->allowedOrigins($site);
+        if ($allowedOrigins === []) {
+            return $response;
+        }
+
+        $requestOrigin = $this->requestOrigin($request);
+        if ($requestOrigin && in_array($requestOrigin, $allowedOrigins, true)) {
+            $response->headers->set('Access-Control-Allow-Origin', $requestOrigin);
+            $response->headers->set('Vary', 'Origin');
+            $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, X-Site, X-Requested-With, Authorization');
+        }
+
+        return $response;
     }
 }

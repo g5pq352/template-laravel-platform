@@ -7,6 +7,7 @@ use App\Models\Site;
 use App\Models\SiteDomain;
 use App\Models\Tenant;
 use App\Support\AdminContext;
+use App\Support\SiteBootstrapper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -67,13 +68,14 @@ class SiteController extends Controller
         ]);
     }
 
-    public function store(AdminContext $context, Request $request): RedirectResponse
+    public function store(AdminContext $context, Request $request, SiteBootstrapper $bootstrapper): RedirectResponse
     {
         $data = $this->validatedData($request);
 
-        $site = DB::transaction(function () use ($data): Site {
+        $site = DB::transaction(function () use ($data, $bootstrapper): Site {
             $site = Site::query()->create($this->sitePayload($data));
             $this->syncDomains($site, $data['domains'] ?? []);
+            $bootstrapper->bootstrap($site);
 
             return $site;
         });

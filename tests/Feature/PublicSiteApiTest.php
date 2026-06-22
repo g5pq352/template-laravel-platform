@@ -79,6 +79,46 @@ class PublicSiteApiTest extends TestCase
             ->assertJsonPath('data.0.url', '/');
     }
 
+    public function test_api_origin_whitelist_blocks_direct_requests_and_allows_frontend_origin(): void
+    {
+        $site = Site::query()->create([
+            'tenant_id' => 1,
+            'name' => 'Origin Locked Site',
+            'slug' => 'origin-locked-site',
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => ['api_allowed_origins' => ['https://www.example.test']],
+        ]);
+
+        Language::query()->create([
+            'site_id' => $site->id,
+            'name' => '繁體中文',
+            'name_en' => 'Traditional Chinese',
+            'slug' => 'tw',
+            'locale' => 'zh-Hant-TW',
+            'is_default' => true,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $this->getJson('/api/site?site=origin-locked-site&language=tw')
+            ->assertForbidden()
+            ->assertJsonPath('message', 'API origin not allowed.');
+
+        $this
+            ->withHeader('Origin', 'https://www.example.test')
+            ->getJson('/api/site?site=origin-locked-site&language=tw')
+            ->assertOk()
+            ->assertJsonPath('data.slug', 'origin-locked-site');
+
+        $this
+            ->withHeader('Origin', 'https://evil.example.test')
+            ->getJson('/api/site?site=origin-locked-site&language=tw')
+            ->assertForbidden();
+    }
+
     public function test_public_api_returns_home_display_items_from_configured_module(): void
     {
         $site = Site::query()->create([

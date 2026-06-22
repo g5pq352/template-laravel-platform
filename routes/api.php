@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\PublicSiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('api.site')->group(function (): void {
+    Route::options('/{any}', fn () => response()->noContent())->where('any', '.*');
     Route::get('/site', [PublicSiteController::class, 'site'])->name('api.site');
     Route::get('/languages', [PublicSiteController::class, 'languages'])->name('api.languages');
     Route::get('/language-packs', [PublicSiteController::class, 'languagePacks'])->name('api.language-packs');
