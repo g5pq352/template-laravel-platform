@@ -31,14 +31,16 @@
         @method('PUT')
     @endif
 
-    <div class="row mb-4">
+    <div class="row">
         <div class="col">
-            <a href="{{ route('admin.sites.index') }}" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
-                <i class="fas fa-arrow-left"></i> 返回
-            </a>
-            <button type="submit" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
-                <i class="fas fa-save"></i> 儲存 (alt+s)
-            </button>
+            <div class="cms-page-actions">
+                <a href="{{ route('admin.sites.index') }}" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
+                    <i class="fas fa-arrow-left"></i> 返回
+                </a>
+                <button type="submit" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
+                    <i class="fas fa-save"></i> 儲存 (alt+s)
+                </button>
+            </div>
         </div>
     </div>
 
@@ -53,39 +55,29 @@
         </div>
     @endif
 
-    <div class="card card-modern">
+    <section class="card card-modern card-big-info">
         <div class="card-body">
-            <div class="row">
-                <div class="col-lg-3 p-0">
-                    <div class="tabs-navigation">
-                        <ul class="nav nav-tabs flex-column" role="tablist">
-                            <li class="nav-item">
-                                <a class="nav-link active" data-bs-toggle="tab" href="#site-main" role="tab">
-                                    <i class="fas fa-cog me-2"></i> 資料設定
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" data-bs-toggle="tab" href="#site-domains" role="tab">
-                                    <i class="fas fa-globe me-2"></i> 網域設定
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" data-bs-toggle="tab" href="#site-api" role="tab">
-                                    <i class="fas fa-code me-2"></i> API 設定
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" data-bs-toggle="tab" href="#site-platform" role="tab">
-                                    <i class="fas fa-folder-open me-2"></i> 站點架構
-                                </a>
-                            </li>
-                        </ul>
+            <div class="tabs-modern row" style="min-height: 490px;">
+                <div class="col-lg-2-5 col-xl-1-5">
+                    <div class="nav flex-column" id="site-tab" role="tablist" aria-orientation="vertical">
+                        <a class="nav-link active" id="site-main-tab" data-bs-toggle="pill" data-bs-target="#site-main" role="tab" aria-controls="site-main" aria-selected="true">
+                            <i class="fas fa-cog me-2"></i> 資料設定
+                        </a>
+                        <a class="nav-link" id="site-domains-tab" data-bs-toggle="pill" data-bs-target="#site-domains" role="tab" aria-controls="site-domains" aria-selected="false">
+                            <i class="fas fa-globe me-2"></i> 網域設定
+                        </a>
+                        <a class="nav-link" id="site-api-tab" data-bs-toggle="pill" data-bs-target="#site-api" role="tab" aria-controls="site-api" aria-selected="false">
+                            <i class="fas fa-code me-2"></i> API 設定
+                        </a>
+                        <a class="nav-link" id="site-platform-tab" data-bs-toggle="pill" data-bs-target="#site-platform" role="tab" aria-controls="site-platform" aria-selected="false">
+                            <i class="fas fa-folder-open me-2"></i> 站點架構
+                        </a>
                     </div>
                 </div>
 
-                <div class="col-lg-9 p-0">
-                    <div class="tab-content">
-                        <div id="site-main" class="tab-pane active">
+                <div class="col-lg-3-5 col-xl-4-5">
+                    <div class="tab-content" id="site-tab-content">
+                        <div id="site-main" class="tab-pane fade show active" role="tabpanel" aria-labelledby="site-main-tab">
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">租戶 <span class="required">*</span></label>
                                 <div class="col-lg-7">
@@ -144,7 +136,7 @@
                             </div>
                         </div>
 
-                        <div id="site-domains" class="tab-pane">
+                        <div id="site-domains" class="tab-pane fade" role="tabpanel" aria-labelledby="site-domains-tab">
                             <div class="form-group row align-items-start cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">網域</label>
                                 <div class="col-lg-8">
@@ -161,7 +153,7 @@
                             </div>
                         </div>
 
-                        <div id="site-api" class="tab-pane">
+                        <div id="site-api" class="tab-pane fade" role="tabpanel" aria-labelledby="site-api-tab">
                             <div class="form-group row align-items-start cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">允許前端來源</label>
                                 <div class="col-lg-7">
@@ -171,7 +163,7 @@
                             </div>
                         </div>
 
-                        <div id="site-platform" class="tab-pane">
+                        <div id="site-platform" class="tab-pane fade" role="tabpanel" aria-labelledby="site-platform-tab">
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">Set 設定檔目錄</label>
                                 <div class="col-lg-8">
@@ -229,7 +221,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </section>
 </form>
 
 <template id="domain-row-template">
