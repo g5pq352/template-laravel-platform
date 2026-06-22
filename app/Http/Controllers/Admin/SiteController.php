@@ -7,6 +7,7 @@ use App\Models\Site;
 use App\Models\SiteDomain;
 use App\Models\Tenant;
 use App\Support\AdminContext;
+use App\Support\SiteDeploymentManager;
 use App\Support\SiteBootstrapper;
 use App\Support\SiteModuleManager;
 use Illuminate\Http\JsonResponse;
@@ -96,6 +97,7 @@ class SiteController extends Controller
         AdminContext $context,
         Request $request,
         SiteBootstrapper $bootstrapper,
+        SiteDeploymentManager $deployment,
         SiteModuleManager $modules
     ): RedirectResponse
     {
@@ -112,6 +114,7 @@ class SiteController extends Controller
             return $site;
         });
         $modules->provisionSetFiles($site);
+        $site = $deployment->ensureAdminAccess($site);
 
         $request->session()->put('current_site_id', $site->id);
 
@@ -134,6 +137,7 @@ class SiteController extends Controller
             'sites' => $context->sites(),
             'managedSite' => $site,
             'tenants' => $this->tenants(),
+            'adminAccess' => app(SiteDeploymentManager::class)->adminAccessForDisplay($site),
             'values' => [
                 ...$site->attributesToArray(),
                 'domains' => $site->domains->map(fn (SiteDomain $domain) => [
@@ -143,6 +147,7 @@ class SiteController extends Controller
                     'force_https' => $domain->force_https,
                 ])->all(),
                 'api_allowed_origins' => implode("\n", Arr::wrap($site->settings['api_allowed_origins'] ?? [])),
+                'deployment' => $deployment,
                 'cms_set_path' => $site->settings['cms_set_path'] ?? '',
                 'repository_path' => $site->settings['repository_path'] ?? '',
                 'db_connection' => $database['connection'] ?? '',
@@ -183,6 +188,23 @@ class SiteController extends Controller
         return redirect()
             ->route('admin.sites.edit', $site)
             ->with('status', '站台已更新');
+    }
+
+    public function gitPush(AdminContext $context, Request $request, Site $site, SiteDeploymentManager $deployment): RedirectResponse|JsonResponse
+    {
+        $this->authorizeMainSite($context);
+
+        $result = $deployment->gitPush($site);
+
+        if ($request->expectsJson()) {
+            return response()->json($result, $result['ok'] ? 200 : 422);
+        }
+
+        if (!$result['ok']) {
+            return back()->withErrors(['git' => $result['message']])->withInput();
+        }
+
+        return back()->with('status', $result['message']);
     }
 
     public function destroy(AdminContext $context, Request $request, Site $site): RedirectResponse|JsonResponse

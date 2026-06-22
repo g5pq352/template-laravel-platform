@@ -32,6 +32,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/sites', [SiteController::class, 'store'])->name('sites.store');
         Route::get('/sites/{site}/edit', [SiteController::class, 'edit'])->name('sites.edit');
         Route::put('/sites/{site}', [SiteController::class, 'update'])->name('sites.update');
+        Route::post('/sites/{site}/git-push', [SiteController::class, 'gitPush'])->name('sites.git-push');
         Route::delete('/sites/{site}', [SiteController::class, 'destroy'])->name('sites.destroy');
         Route::get('/settings', fn () => redirect()->route('admin.info.edit', 'keywordsInfo'))->name('settings.index');
         Route::get('/media-library', [MediaLibraryController::class, 'index'])->name('media-library.index');

@@ -57,6 +57,11 @@
                 <button type="submit" class="btn btn-primary btn-md font-weight-semibold btn-py-2 px-4">
                     <i class="fas fa-save"></i> 儲存 (alt+s)
                 </button>
+                @if($isEdit)
+                    <button type="button" class="btn btn-dark btn-md font-weight-semibold btn-py-2 px-4 js-site-git-push" data-url="{{ route('admin.sites.git-push', $managedSite) }}">
+                        <i class="fab fa-gitlab"></i> Git Push
+                    </button>
+                @endif
             </div>
         </div>
     </div>
@@ -219,6 +224,35 @@
                         </div>
 
                         <div id="site-platform" class="tab-pane fade" role="tabpanel" aria-labelledby="site-platform-tab">
+                            @if($isEdit)
+                                <div class="form-group row align-items-start cms-form-row">
+                                    <label class="col-lg-3 control-label text-lg-end mb-0">後台登入資訊</label>
+                                    <div class="col-lg-8">
+                                        <div class="p-3 border rounded bg-light">
+                                            <div class="mb-2">
+                                                <span class="font-weight-semibold">後台網址：</span>
+                                                @if(!empty($adminAccess['url']))
+                                                    <a href="{{ $adminAccess['url'] }}" target="_blank" rel="noopener">{{ $adminAccess['url'] }}</a>
+                                                @else
+                                                    <span class="text-muted">尚未建立</span>
+                                                @endif
+                                            </div>
+                                            <div class="mb-2">
+                                                <span class="font-weight-semibold">帳號：</span>
+                                                <code>{{ $adminAccess['username'] ?? 'admin' }}</code>
+                                            </div>
+                                            <div class="mb-2">
+                                                <span class="font-weight-semibold">密碼：</span>
+                                                <code>{{ $adminAccess['password'] ?? '尚未建立' }}</code>
+                                            </div>
+                                            @if(!empty($adminAccess['generated_at']))
+                                                <div class="text-muted text-2">建立時間：{{ $adminAccess['generated_at'] }}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">Set 設定檔目錄</label>
                                 <div class="col-lg-8">
@@ -235,11 +269,43 @@
                             </div>
 
                             <div class="form-group row align-items-center cms-form-row">
-                                <label class="col-lg-3 control-label text-lg-end mb-0">GitHub Repo URL</label>
+                                <label class="col-lg-3 control-label text-lg-end mb-0">GitLab Repo URL</label>
                                 <div class="col-lg-8">
-                                    <input type="text" name="git_repository_url" class="form-control" value="{{ old('git_repository_url', $values['git_repository_url'] ?? '') }}" placeholder="https://github.com/org/site.git">
+                                    <input type="text" name="git_repository_url" class="form-control" value="{{ old('git_repository_url', $values['git_repository_url'] ?? '') }}" placeholder="https://gitlab.com/org/site.git">
+                                    <div class="text-danger text-2 mt-2">Git Push 按鈕會使用這個遠端網址；若是 private GitLab，請先在本機 Git 設好權限或使用可推送的 URL。</div>
                                 </div>
                             </div>
+
+                            @if($isEdit)
+                                <div class="form-group row align-items-start cms-form-row">
+                                    <label class="col-lg-3 control-label text-lg-end mb-0">Git Push 狀態</label>
+                                    <div class="col-lg-8">
+                                        @php
+                                            $gitStatus = $values['deployment']['git_push_status'] ?? null;
+                                            $gitPushedAt = $values['deployment']['git_pushed_at'] ?? null;
+                                            $gitMessage = $values['deployment']['git_push_message'] ?? null;
+                                        @endphp
+                                        <div class="p-3 border rounded bg-light">
+                                            <div class="mb-2">
+                                                <span class="font-weight-semibold">狀態：</span>
+                                                @if($gitStatus === 'success')
+                                                    <span class="badge badge-success">成功</span>
+                                                @elseif($gitStatus === 'failed')
+                                                    <span class="badge badge-danger">失敗</span>
+                                                @else
+                                                    <span class="text-muted">尚未推送</span>
+                                                @endif
+                                            </div>
+                                            @if($gitPushedAt)
+                                                <div class="mb-2"><span class="font-weight-semibold">最後推送：</span>{{ $gitPushedAt }}</div>
+                                            @endif
+                                            @if($gitMessage)
+                                                <div class="text-muted text-2">{{ $gitMessage }}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
 
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">資料庫連線名稱</label>
@@ -377,6 +443,24 @@
             if (!remove) return;
 
             remove.closest('.site-custom-module-row')?.remove();
+        });
+
+        document.querySelector('.js-site-git-push')?.addEventListener('click', async function () {
+            if (!await cmsConfirm('確定要將這個站台專案 Git Push 到 GitLab？')) return;
+
+            const form = document.createElement('form');
+            form.method = 'post';
+            form.action = this.dataset.url;
+            form.className = 'd-none';
+
+            const token = document.createElement('input');
+            token.type = 'hidden';
+            token.name = '_token';
+            token.value = @json(csrf_token());
+            form.appendChild(token);
+
+            document.body.appendChild(form);
+            form.submit();
         });
     });
 </script>

@@ -6,10 +6,12 @@ use App\Models\AdminUser;
 use App\Models\Site;
 use App\Models\Tenant;
 use App\Support\CmsSetLoader;
+use App\Support\SiteDeploymentManager;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
 class AdminSiteManagementTest extends TestCase
@@ -102,6 +104,10 @@ class AdminSiteManagementTest extends TestCase
             'domain_bound_at' => '2026-06-22 11:00:00',
             'notes' => 'Custom site notes.',
         ], $site->settings['deployment']);
+        $adminAccess = app(SiteDeploymentManager::class)->adminAccessForDisplay($site);
+        $this->assertSame('https://' . $domain . '/cms', $adminAccess['url']);
+        $this->assertSame('admin', $adminAccess['username']);
+        $this->assertNotEmpty($adminAccess['password']);
         $this->assertDatabaseHas('site_domains', [
             'site_id' => $site->id,
             'domain' => $domain,
@@ -491,6 +497,77 @@ PHP);
             'module_key' => 'blog.categories',
             'is_active' => false,
         ]);
+    }
+
+    public function test_admin_can_git_push_site_repository(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'git-push-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $repoPath = storage_path('framework/testing/git-site-' . $slug);
+        $remotePath = storage_path('framework/testing/git-remote-' . $slug . '.git');
+
+        if (!is_dir($repoPath)) {
+            mkdir($repoPath, 0777, true);
+        }
+
+        file_put_contents($repoPath . DIRECTORY_SEPARATOR . 'README.md', '# ' . $slug . PHP_EOL);
+        (new Process(['git', 'init', '--bare', $remotePath]))->mustRun();
+
+        $site = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Git Push Site',
+            'slug' => $slug,
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [
+                'repository_path' => $repoPath,
+                'deployment' => [
+                    'git_repository_url' => $remotePath,
+                ],
+            ],
+        ]);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->post(route('admin.sites.git-push', $site))
+            ->assertRedirect();
+
+        $site->refresh();
+        $this->assertSame('success', $site->settings['deployment']['git_push_status'] ?? null);
+        $this->assertNotEmpty($site->settings['deployment']['git_pushed_at'] ?? null);
+    }
+
+    public function test_site_edit_page_shows_admin_access_and_git_push_button(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $site = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Access Info Site',
+            'slug' => 'access-info-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8)),
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [
+                'deployment' => [
+                    'admin_url' => 'https://access.example.test/cms',
+                    'git_repository_url' => 'https://gitlab.com/example/access-info-site.git',
+                ],
+            ],
+        ]);
+
+        app(SiteDeploymentManager::class)->ensureAdminAccess($site);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->get(route('admin.sites.edit', $site))
+            ->assertOk()
+            ->assertSee('Git Push')
+            ->assertSee('後台登入資訊')
+            ->assertSee('https://access.example.test/cms')
+            ->assertSee('admin');
     }
 
     private function adminAndTenant(): array
