@@ -14,6 +14,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -266,7 +268,7 @@ class SiteController extends Controller
             'db_username' => ['nullable', 'string', 'max:150'],
             'db_password' => ['nullable', 'string', 'max:255'],
             'enabled_modules' => ['nullable', 'array'],
-            'enabled_modules.*' => ['string', Rule::in(['news', 'products', 'contact'])],
+            'enabled_modules.*' => ['string', Rule::in(['news', 'product', 'products', 'contact', 'contactus'])],
             'custom_modules' => ['nullable', 'array'],
             'custom_modules.*.name' => ['nullable', 'required_with:custom_modules.*.slug', 'string', 'max:150'],
             'custom_modules.*.slug' => ['nullable', 'required_with:custom_modules.*.name', 'string', 'max:100', 'regex:/^[a-z0-9][a-z0-9-]*[a-z0-9]$/'],
@@ -286,7 +288,10 @@ class SiteController extends Controller
             'domains.*.force_https' => ['nullable', 'boolean'],
         ], [
             'slug.regex' => '站台代號只能使用小寫英文、數字與連字號，且開頭與結尾不能是連字號。',
+            'custom_modules.*.slug.regex' => '自訂模組代碼只能使用小寫英文、數字與連字號，且開頭與結尾不能是連字號。',
         ]);
+
+        $this->validateCustomModules($data['custom_modules'] ?? []);
 
         $domains = collect($data['domains'] ?? [])
             ->map(function (array $domain): array {
@@ -343,6 +348,83 @@ class SiteController extends Controller
         return $data;
     }
 
+    private function validateCustomModules(array $modules): void
+    {
+        $reserved = $this->reservedCustomModuleKeys();
+        $seen = [];
+        $errors = [];
+
+        foreach ($modules as $index => $module) {
+            $name = trim((string) ($module['name'] ?? ''));
+            $slug = trim((string) ($module['slug'] ?? ''));
+
+            if ($name === '' && $slug === '') {
+                continue;
+            }
+
+            $key = Str::camel($slug);
+            $field = "custom_modules.{$index}.slug";
+
+            if (in_array($key, $reserved, true) || in_array($slug, $reserved, true)) {
+                $errors[$field] = "自訂模組代碼「{$slug}」已被系統或標準模組使用。";
+                continue;
+            }
+
+            if (in_array($key, $seen, true)) {
+                $errors[$field] = "自訂模組代碼「{$slug}」重複，請改用不同代碼。";
+                continue;
+            }
+
+            $seen[] = $key;
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function reservedCustomModuleKeys(): array
+    {
+        $sharedSetKeys = collect(glob(config_path('cms/set/*Set.php')) ?: [])
+            ->map(fn (string $file): string => Str::beforeLast(basename($file), 'Set.php'))
+            ->all();
+
+        return collect([
+            'admin',
+            'api',
+            'dashboard',
+            'home',
+            'homeDisplay',
+            'info',
+            'contents',
+            'taxonomies',
+            'mediaLibrary',
+            'settings',
+            'sites',
+            'permissions',
+            'menus',
+            'news',
+            'newsCate',
+            'newsTag',
+            'product',
+            'productCate',
+            'productTag',
+            'products',
+            'contact',
+            'contactus',
+            'languageType',
+            'languagePack',
+        ])
+            ->merge($sharedSetKeys)
+            ->map(fn (string $key): string => Str::camel($key))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
     private function sitePayload(array $data, ?Site $site = null): array
     {
         $origins = collect(preg_split('/\R/', (string) ($data['api_allowed_origins'] ?? '')) ?: [])
@@ -376,6 +458,7 @@ class SiteController extends Controller
 
         $settings['enabled_modules'] = collect($data['enabled_modules'] ?? [])
             ->map(fn (string $module) => trim($module))
+            ->map(fn (string $module) => $this->normalizeStandardModuleKey($module))
             ->filter()
             ->unique()
             ->values()
@@ -428,6 +511,15 @@ class SiteController extends Controller
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function normalizeStandardModuleKey(string $module): string
+    {
+        return match ($module) {
+            'product' => 'products',
+            'contactus' => 'contact',
+            default => $module,
+        };
     }
 
     private function syncDomains(Site $site, array $domains): void

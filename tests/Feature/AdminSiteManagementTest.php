@@ -372,6 +372,127 @@ PHP);
         $this->assertSame(['news', 'products'], $site->refresh()->settings['enabled_modules']);
     }
 
+    public function test_custom_module_slug_cannot_conflict_with_reserved_modules(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->from(route('admin.sites.create'))
+            ->post(route('admin.sites.store'), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Reserved Module Site',
+                'slug' => 'reserved-module-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8)),
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'enabled_modules' => ['news'],
+                'custom_modules' => [
+                    ['name' => 'Bad News', 'slug' => 'news', 'type' => 'single'],
+                ],
+            ])
+            ->assertRedirect(route('admin.sites.create'))
+            ->assertSessionHasErrors('custom_modules.0.slug');
+    }
+
+    public function test_legacy_standard_module_keys_are_normalized(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'legacy-module-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->post(route('admin.sites.store'), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Legacy Module Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'enabled_modules' => ['news', 'product', 'contactus'],
+            ]);
+
+        $site = Site::query()->where('slug', $slug)->firstOrFail();
+
+        $this->assertSame(['news', 'products', 'contact'], $site->settings['enabled_modules']);
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'products',
+            'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'contact',
+            'is_active' => true,
+        ]);
+    }
+
+    public function test_removed_custom_module_backend_menu_is_disabled(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'disable-custom-module-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $setPath = storage_path('framework/testing/site-disable-custom-set-' . $slug);
+
+        $site = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Disable Custom Module Site',
+            'slug' => $slug,
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [
+                'cms_set_path' => $setPath,
+                'enabled_modules' => ['news'],
+                'custom_modules' => [
+                    ['name' => 'Blog', 'slug' => 'blog', 'type' => 'single'],
+                ],
+            ],
+        ]);
+
+        app(\App\Support\SiteModuleManager::class)->syncDatabase($site);
+
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'blog',
+            'is_active' => true,
+        ]);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->put(route('admin.sites.update', $site), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Disable Custom Module Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'cms_set_path' => $setPath,
+                'enabled_modules' => ['news'],
+                'custom_modules' => [],
+            ])
+            ->assertRedirect(route('admin.sites.edit', $site));
+
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'blog',
+            'is_active' => false,
+        ]);
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'blog.categories',
+            'is_active' => false,
+        ]);
+    }
+
     private function adminAndTenant(): array
     {
         $this->ensureSchema();

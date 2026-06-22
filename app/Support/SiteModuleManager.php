@@ -59,6 +59,7 @@ class SiteModuleManager
 
         return collect($modules)
             ->map(fn (mixed $module): string => trim((string) $module))
+            ->map(fn (string $module): string => $this->normalizeStandardModuleKey($module))
             ->filter(fn (string $module): bool => array_key_exists($module, self::STANDARD_MODULES))
             ->unique()
             ->values()
@@ -607,5 +608,14 @@ PHP;
             ->max('sort_order');
 
         return $maxSort + 1;
+    }
+
+    private function normalizeStandardModuleKey(string $module): string
+    {
+        return match ($module) {
+            'product' => 'products',
+            'contactus' => 'contact',
+            default => $module,
+        };
     }
 }
