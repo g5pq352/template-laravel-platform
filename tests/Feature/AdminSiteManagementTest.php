@@ -134,6 +134,8 @@ class AdminSiteManagementTest extends TestCase
         $this->assertFileExists($setPath . DIRECTORY_SEPARATOR . 'blogSet.php');
         $this->assertFileExists($setPath . DIRECTORY_SEPARATOR . 'eventsCateSet.php');
         $this->assertFileDoesNotExist($setPath . DIRECTORY_SEPARATOR . 'contactusSet.php');
+        $this->assertArrayHasKey('blog', CmsSetLoader::allKnown('list'));
+        $this->assertArrayHasKey('events', CmsSetLoader::allKnown('list'));
         $this->assertDatabaseHas('cms_menus', [
             'site_id' => Site::query()->where('slug', 'main-site')->value('id'),
             'location' => 'backend',
@@ -144,6 +146,27 @@ class AdminSiteManagementTest extends TestCase
             'site_id' => $site->id,
             'location' => 'backend',
             'module_key' => 'sites',
+        ]);
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'blog',
+            'title' => 'Blog',
+            'route_name' => 'admin.blog.index',
+        ]);
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'blog.categories',
+            'title' => '分類',
+            'route_name' => 'admin.taxonomies.index',
+        ]);
+        $this->assertDatabaseHas('cms_menus', [
+            'site_id' => $site->id,
+            'location' => 'backend',
+            'module_key' => 'events.tags',
+            'title' => '標籤',
+            'route_name' => 'admin.taxonomies.index',
         ]);
     }
 

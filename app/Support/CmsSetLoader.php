@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Site;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CmsSetLoader
@@ -12,11 +13,32 @@ class CmsSetLoader
      */
     public static function all(?string $pageType = null, ?Site $site = null): array
     {
+        return self::loadFromPaths(self::paths($site), $pageType);
+    }
+
+    /**
+     * Load every known site set file. This is used only while registering
+     * named admin routes, so site-specific custom modules can keep the same
+     * admin.{resource}.* route pattern as shared modules.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    public static function allKnown(?string $pageType = null): array
+    {
+        return self::loadFromPaths(self::knownPaths(), $pageType);
+    }
+
+    /**
+     * @param list<string> $paths
+     * @return array<string, array<string, mixed>>
+     */
+    private static function loadFromPaths(array $paths, ?string $pageType = null): array
+    {
         $modules = [];
         $sharedPath = self::sharedPath();
         $sharedSetModules = self::sharedSetModules();
 
-        foreach (self::paths($site) as $path) {
+        foreach ($paths as $path) {
             foreach (glob($path . '/*Set.php') ?: [] as $file) {
                 $config = require $file;
                 if (!is_array($config)) {
@@ -59,6 +81,32 @@ class CmsSetLoader
 
         if ($sitePath && is_dir($sitePath)) {
             $paths[] = $sitePath;
+        }
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function knownPaths(): array
+    {
+        $paths = [self::sharedPath()];
+
+        try {
+            if (Schema::hasTable('sites')) {
+                Site::query()
+                    ->whereNotNull('settings')
+                    ->get()
+                    ->each(function (Site $site) use (&$paths): void {
+                        $sitePath = self::siteSetPath($site);
+                        if ($sitePath && is_dir($sitePath)) {
+                            $paths[] = $sitePath;
+                        }
+                    });
+            }
+        } catch (\Throwable) {
+            return array_values(array_unique($paths));
         }
 
         return array_values(array_unique($paths));

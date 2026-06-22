@@ -74,7 +74,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('/contents/{content}', [ContentController::class, 'update'])->name('contents.update');
         Route::delete('/contents/{content}', [ContentController::class, 'destroy'])->name('contents.destroy');
 
-        foreach (array_keys(CmsSetLoader::all('list')) as $resource) {
+        foreach (array_keys(CmsSetLoader::allKnown('list')) as $resource) {
             Route::get("/{$resource}", [ResourceController::class, 'index'])->defaults('resource', $resource)->name("{$resource}.index");
             Route::get("/{$resource}/create", [ResourceController::class, 'create'])->defaults('resource', $resource)->name("{$resource}.create");
             Route::post("/{$resource}", [ResourceController::class, 'store'])->defaults('resource', $resource)->name("{$resource}.store");

@@ -73,6 +73,7 @@ class SiteModuleManager
         $this->syncStandardTaxonomies($site, $enabled);
         $this->syncCustomModules($site);
         $this->syncBackendModuleVisibility($site, $enabled);
+        $this->syncCustomBackendMenus($site);
     }
 
     public function provisionSetFiles(Site $site): void
@@ -138,7 +139,7 @@ class SiteModuleManager
     {
         foreach ($this->customModules($site) as $module) {
             $type = $module['type'];
-            $slug = $module['slug'];
+            $slug = $this->moduleKey($module);
             $name = $module['name'];
 
             if (Schema::hasTable('content_types') && in_array($type, ['single', 'multi', 'list_only', 'info'], true)) {
@@ -156,6 +157,90 @@ class SiteModuleManager
                 Taxonomy::query()->updateOrCreate(
                     ['site_id' => $site->id, 'code' => $slug . 'Tag'],
                     ['name' => $name . '標籤', 'is_hierarchical' => false]
+                );
+            }
+        }
+    }
+
+    private function syncCustomBackendMenus(Site $site): void
+    {
+        if (!Schema::hasTable('cms_menus')) {
+            return;
+        }
+
+        $locale = $site->default_locale ?: 'zh-Hant-TW';
+        $modules = $this->customModules($site);
+        $activeKeys = collect($modules)
+            ->flatMap(fn (array $module): array => $this->customBackendMenuKeys($module))
+            ->values()
+            ->all();
+
+        CmsMenu::query()
+            ->where('site_id', $site->id)
+            ->where('location', 'backend')
+            ->where(function ($query): void {
+                $query
+                    ->where('settings->custom_module', true)
+                    ->orWhere('module_key', 'like', 'custom.%');
+            })
+            ->when($activeKeys !== [], fn ($query) => $query->whereNotIn('module_key', $activeKeys))
+            ->update(['is_active' => false]);
+
+        $sortOrder = $this->nextBackendSortOrder($site);
+
+        foreach ($modules as $module) {
+            $key = $this->moduleKey($module);
+            $name = $module['name'];
+            $type = $module['type'];
+            $route = $this->customModuleRoute($module);
+            $existingParent = CmsMenu::query()
+                ->where('site_id', $site->id)
+                ->where('location', 'backend')
+                ->whereNull('parent_id')
+                ->where('module_key', $key)
+                ->first();
+
+            $parent = CmsMenu::query()->updateOrCreate(
+                [
+                    'site_id' => $site->id,
+                    'location' => 'backend',
+                    'parent_id' => null,
+                    'module_key' => $key,
+                ],
+                [
+                    'locale' => $locale,
+                    'title' => $name,
+                    'type' => !empty($route['route_name']) ? 'route' : 'custom',
+                    'url' => $route['url'] ?? null,
+                    'route_name' => $route['route_name'] ?? null,
+                    'icon' => $type === 'contactus' ? 'bx bx-detail' : 'bx bx-file',
+                    'target' => '_self',
+                    'is_active' => true,
+                    'sort_order' => $existingParent?->sort_order ?: $sortOrder++,
+                    'settings' => $this->customMenuSettings($module, $route['route_params'] ?? []),
+                ]
+            );
+
+            foreach ($this->customBackendChildren($module) as $index => $child) {
+                CmsMenu::query()->updateOrCreate(
+                    [
+                        'site_id' => $site->id,
+                        'location' => 'backend',
+                        'module_key' => $child['module_key'],
+                    ],
+                    [
+                        'parent_id' => $parent->id,
+                        'locale' => $locale,
+                        'title' => $child['title'],
+                        'type' => 'route',
+                        'url' => null,
+                        'route_name' => $child['route_name'],
+                        'icon' => null,
+                        'target' => '_self',
+                        'is_active' => true,
+                        'sort_order' => $index + 1,
+                        'settings' => $this->customMenuSettings($module, $child['route_params'] ?? []),
+                    ]
                 );
             }
         }
@@ -223,7 +308,7 @@ class SiteModuleManager
 
     private function writeCustomSetFiles(string $setPath, array $module): void
     {
-        $slug = Str::camel($module['slug']);
+        $slug = $this->moduleKey($module);
         $name = $module['name'];
         $type = $module['type'];
 
@@ -437,5 +522,90 @@ PHP;
     private function export(mixed $value): string
     {
         return var_export($value, true);
+    }
+
+    private function moduleKey(array $module): string
+    {
+        return Str::camel($module['slug']);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function customBackendMenuKeys(array $module): array
+    {
+        $key = $this->moduleKey($module);
+        $keys = [$key];
+
+        foreach ($this->customBackendChildren($module) as $child) {
+            $keys[] = $child['module_key'];
+        }
+
+        return $keys;
+    }
+
+    /**
+     * @return array{route_name?: string, route_params?: array<string, string>, url?: string|null}
+     */
+    private function customModuleRoute(array $module): array
+    {
+        $key = $this->moduleKey($module);
+
+        if ($module['type'] === 'info') {
+            return [
+                'route_name' => 'admin.info.edit',
+                'route_params' => ['module' => $key . 'Info'],
+            ];
+        }
+
+        return ['route_name' => "admin.{$key}.index"];
+    }
+
+    /**
+     * @return list<array{title: string, module_key: string, route_name: string, route_params?: array<string, string>}>
+     */
+    private function customBackendChildren(array $module): array
+    {
+        $key = $this->moduleKey($module);
+
+        if (!in_array($module['type'], ['single', 'multi'], true)) {
+            return [];
+        }
+
+        return [
+            ['title' => $module['name'] . '列表', 'module_key' => $key . '.list', 'route_name' => "admin.{$key}.index"],
+            ['title' => '分類', 'module_key' => $key . '.categories', 'route_name' => 'admin.taxonomies.index', 'route_params' => ['taxonomy' => $key . 'Cate']],
+            ['title' => '標籤', 'module_key' => $key . '.tags', 'route_name' => 'admin.taxonomies.index', 'route_params' => ['taxonomy' => $key . 'Tag']],
+        ];
+    }
+
+    /**
+     * @param array<string, string> $routeParams
+     * @return array<string, mixed>
+     */
+    private function customMenuSettings(array $module, array $routeParams = []): array
+    {
+        $settings = [
+            'custom_module' => true,
+            'custom_module_type' => $module['type'],
+            'custom_module_slug' => $module['slug'],
+        ];
+
+        if ($routeParams !== []) {
+            $settings['route_params'] = $routeParams;
+        }
+
+        return $settings;
+    }
+
+    private function nextBackendSortOrder(Site $site): int
+    {
+        $maxSort = (int) CmsMenu::query()
+            ->where('site_id', $site->id)
+            ->where('location', 'backend')
+            ->whereNull('parent_id')
+            ->max('sort_order');
+
+        return $maxSort + 1;
     }
 }
