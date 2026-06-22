@@ -33,6 +33,7 @@ class AdminSiteManagementTest extends TestCase
         [$admin, $tenant] = $this->adminAndTenant();
         $slug = 'test-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
         $domain = $slug . '.example.test';
+        $setPath = storage_path('framework/testing/site-create-set-' . $slug);
 
         $response = $this
             ->withSession(['admin_user_id' => $admin->id])
@@ -45,7 +46,7 @@ class AdminSiteManagementTest extends TestCase
                 'timezone' => 'Asia/Taipei',
                 'currency_code' => 'TWD',
                 'api_allowed_origins' => "https://frontend.example.test\nhttps://www.example.test",
-                'cms_set_path' => 'sites/test-site/cms/set',
+                'cms_set_path' => $setPath,
                 'repository_path' => 'D:\wamp64\www\test-site',
                 'db_connection' => 'test_site',
                 'db_host' => '127.0.0.1',
@@ -77,7 +78,7 @@ class AdminSiteManagementTest extends TestCase
         $response->assertRedirect($site ? route('admin.sites.edit', $site) : route('admin.sites.index'));
         $this->assertNotNull($site);
         $this->assertSame(['https://frontend.example.test', 'https://www.example.test'], $site->settings['api_allowed_origins']);
-        $this->assertSame('sites/test-site/cms/set', $site->settings['cms_set_path']);
+        $this->assertSame($setPath, $site->settings['cms_set_path']);
         $this->assertSame('D:\wamp64\www\test-site', $site->settings['repository_path']);
         $this->assertSame([
             'connection' => 'test_site',
@@ -128,6 +129,11 @@ class AdminSiteManagementTest extends TestCase
             'code' => 'newsCate',
             'name' => '最新消息分類',
         ]);
+        $this->assertFileExists($setPath . DIRECTORY_SEPARATOR . 'newsSet.php');
+        $this->assertFileExists($setPath . DIRECTORY_SEPARATOR . 'productSet.php');
+        $this->assertFileExists($setPath . DIRECTORY_SEPARATOR . 'blogSet.php');
+        $this->assertFileExists($setPath . DIRECTORY_SEPARATOR . 'eventsCateSet.php');
+        $this->assertFileDoesNotExist($setPath . DIRECTORY_SEPARATOR . 'contactusSet.php');
         $this->assertDatabaseHas('cms_menus', [
             'site_id' => Site::query()->where('slug', 'main-site')->value('id'),
             'location' => 'backend',
@@ -294,6 +300,53 @@ PHP);
 
         $this->assertSame('站台專屬消息', $config['moduleName'] ?? null);
         $this->assertNotSame('不應覆蓋的站台全站設定', $sharedConfig['moduleName'] ?? null);
+    }
+
+    public function test_site_update_does_not_write_set_files(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'no-file-update-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $setPath = storage_path('framework/testing/site-update-set-' . $slug);
+
+        if (!is_dir($setPath)) {
+            mkdir($setPath, 0777, true);
+        }
+
+        $existingFile = $setPath . DIRECTORY_SEPARATOR . 'productSet.php';
+        file_put_contents($existingFile, "<?php\n\nreturn ['moduleName' => 'Do Not Overwrite'];\n");
+
+        $site = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'No File Update Site',
+            'slug' => $slug,
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [
+                'cms_set_path' => $setPath,
+                'enabled_modules' => ['news'],
+            ],
+        ]);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->put(route('admin.sites.update', $site), [
+                'tenant_id' => $tenant->id,
+                'name' => 'No File Update Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'cms_set_path' => $setPath,
+                'enabled_modules' => ['news', 'products'],
+            ])
+            ->assertRedirect(route('admin.sites.edit', $site));
+
+        $this->assertSame("<?php\n\nreturn ['moduleName' => 'Do Not Overwrite'];\n", file_get_contents($existingFile));
+        $this->assertFileDoesNotExist($setPath . DIRECTORY_SEPARATOR . 'productCateSet.php');
+        $this->assertSame(['news', 'products'], $site->refresh()->settings['enabled_modules']);
     }
 
     private function adminAndTenant(): array

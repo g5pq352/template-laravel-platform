@@ -8,6 +8,7 @@ use App\Models\SiteDomain;
 use App\Models\Tenant;
 use App\Support\AdminContext;
 use App\Support\SiteBootstrapper;
+use App\Support\SiteModuleManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -89,19 +90,26 @@ class SiteController extends Controller
         ]);
     }
 
-    public function store(AdminContext $context, Request $request, SiteBootstrapper $bootstrapper): RedirectResponse
+    public function store(
+        AdminContext $context,
+        Request $request,
+        SiteBootstrapper $bootstrapper,
+        SiteModuleManager $modules
+    ): RedirectResponse
     {
         $this->authorizeMainSite($context);
 
         $data = $this->validatedData($request);
 
-        $site = DB::transaction(function () use ($data, $bootstrapper): Site {
+        $site = DB::transaction(function () use ($data, $bootstrapper, $modules): Site {
             $site = Site::query()->create($this->sitePayload($data));
             $this->syncDomains($site, $data['domains'] ?? []);
             $bootstrapper->bootstrap($site);
+            $modules->syncDatabase($site);
 
             return $site;
         });
+        $modules->provisionSetFiles($site);
 
         $request->session()->put('current_site_id', $site->id);
 
@@ -154,7 +162,7 @@ class SiteController extends Controller
         ]);
     }
 
-    public function update(AdminContext $context, Request $request, Site $site): RedirectResponse
+    public function update(AdminContext $context, Request $request, Site $site, SiteModuleManager $modules): RedirectResponse
     {
         $this->authorizeMainSite($context);
 
@@ -164,6 +172,7 @@ class SiteController extends Controller
             $site->update($this->sitePayload($data, $site));
             $this->syncDomains($site, $data['domains'] ?? []);
         });
+        $modules->syncDatabase($site->refresh());
 
         if ($site->status !== 'active' && (int) $request->session()->get('current_site_id') === (int) $site->id) {
             $request->session()->forget('current_site_id');
