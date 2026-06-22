@@ -17,13 +17,25 @@ class AdminSiteManagementTest extends TestCase
 
     public function test_admin_can_open_site_management_page(): void
     {
-        [$admin] = $this->adminAndTenant();
+        [$admin, $tenant] = $this->adminAndTenant();
+        Site::query()->firstOrCreate(
+            ['slug' => 'switchable-site'],
+            [
+                'tenant_id' => $tenant->id,
+                'name' => 'Switchable Site',
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+            ]
+        );
 
         $this
             ->withSession(['admin_user_id' => $admin->id])
             ->get(route('admin.sites.index'))
             ->assertOk()
-            ->assertSee('多站管理');
+            ->assertSee('多站管理')
+            ->assertSee('admin-site-switcher', false);
     }
 
     public function test_admin_can_create_site_with_domains(): void
@@ -115,6 +127,55 @@ class AdminSiteManagementTest extends TestCase
 
         $response->assertSessionHasErrors('site');
         $this->assertDatabaseHas('sites', ['id' => $site->id]);
+    }
+
+    public function test_admin_can_switch_current_site_from_header(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $baseSite = Site::query()->where('slug', 'base-test-site')->firstOrFail();
+        $targetSite = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Target Switch Site',
+            'slug' => 'target-switch-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8)),
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+        ]);
+
+        $this
+            ->withSession([
+                'admin_user_id' => $admin->id,
+                'current_site_id' => $baseSite->id,
+            ])
+            ->post(route('admin.sites.switch'), [
+                'site_id' => $targetSite->id,
+                'redirect_to' => route('admin.dashboard'),
+            ])
+            ->assertRedirect(route('admin.dashboard'))
+            ->assertSessionHas('current_site_id', $targetSite->id);
+    }
+
+    public function test_site_switch_redirect_is_limited_to_admin_pages(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $targetSite = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Safe Redirect Site',
+            'slug' => 'safe-redirect-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8)),
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+        ]);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->post(route('admin.sites.switch'), [
+                'site_id' => $targetSite->id,
+                'redirect_to' => 'https://evil.example.test/admin',
+            ])
+            ->assertRedirect(route('admin.dashboard'));
     }
 
     private function adminAndTenant(): array

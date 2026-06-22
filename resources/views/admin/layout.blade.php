@@ -59,6 +59,23 @@
 
         .cms-count { color: #4f5b66; font-size: 13px; }
 
+        .cms-site-switcher {
+            align-items: center;
+            display: flex;
+            min-width: 190px;
+        }
+
+        .cms-site-switcher form {
+            margin: 0;
+            width: 100%;
+        }
+
+        .cms-site-switcher select {
+            height: 38px;
+            max-width: 260px;
+            min-width: 190px;
+        }
+
         .ecommerce-form .cms-form-row {
             margin-bottom: 0;
             padding-bottom: 10px;
@@ -119,6 +136,14 @@
 
         @media (max-width: 991px) {
             .cms-count { text-align: left; }
+            .cms-site-switcher {
+                min-width: 150px;
+            }
+
+            .cms-site-switcher select {
+                min-width: 150px;
+                max-width: 180px;
+            }
         }
     </style>
     @stack('styles')

@@ -164,12 +164,13 @@ class SiteController extends Controller
     {
         $data = $request->validate([
             'site_id' => ['required', 'integer', 'exists:sites,id'],
+            'redirect_to' => ['nullable', 'string'],
         ]);
 
         $site = Site::query()->whereKey($data['site_id'])->where('status', 'active')->firstOrFail();
         $request->session()->put('current_site_id', $site->id);
 
-        return back();
+        return redirect()->to($this->safeSwitchRedirect($request, (string) ($data['redirect_to'] ?? '')));
     }
 
     private function tenants()
@@ -314,6 +315,34 @@ class SiteController extends Controller
         $domain = trim($domain, "/ \t\n\r\0\x0B");
 
         return strtolower($domain);
+    }
+
+    private function safeSwitchRedirect(Request $request, string $redirectTo): string
+    {
+        $fallback = route('admin.dashboard');
+        $redirectTo = trim($redirectTo);
+
+        if ($redirectTo === '') {
+            return $fallback;
+        }
+
+        $appHost = parse_url(url('/'), PHP_URL_HOST);
+        $targetHost = parse_url($redirectTo, PHP_URL_HOST);
+        $targetPath = parse_url($redirectTo, PHP_URL_PATH) ?: '';
+
+        if ($targetHost && $targetHost !== $appHost) {
+            return $fallback;
+        }
+
+        if (!str_starts_with('/' . ltrim($targetPath, '/'), '/admin')) {
+            return $fallback;
+        }
+
+        if (str_contains($targetPath, '/admin/sites')) {
+            return $fallback;
+        }
+
+        return $redirectTo;
     }
 
     private function siteHasManagedData(Site $site): bool
