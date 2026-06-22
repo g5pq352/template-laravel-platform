@@ -570,6 +570,88 @@ PHP);
             ->assertSee('admin');
     }
 
+    public function test_admin_access_can_be_edited_after_generation(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'editable-access-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $site = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Editable Access Site',
+            'slug' => $slug,
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+        ]);
+
+        $site = app(SiteDeploymentManager::class)->ensureAdminAccess($site);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->put(route('admin.sites.update', $site), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Editable Access Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'enabled_modules' => ['news'],
+                'admin_access_url' => 'https://editable.example.test/admin',
+                'admin_access_username' => 'manager',
+                'admin_access_password' => 'changed-secret',
+            ])
+            ->assertRedirect(route('admin.sites.edit', $site));
+
+        $access = app(SiteDeploymentManager::class)->adminAccessForDisplay($site->refresh());
+        $this->assertSame('https://editable.example.test/admin', $access['url']);
+        $this->assertSame('manager', $access['username']);
+        $this->assertSame('changed-secret', $access['password']);
+    }
+
+    public function test_empty_admin_access_password_keeps_existing_password(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'keep-access-password-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $site = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Keep Access Password Site',
+            'slug' => $slug,
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+        ]);
+
+        $site = app(SiteDeploymentManager::class)->syncAdminAccess($site, [
+            'admin_access_url' => 'https://keep.example.test/admin',
+            'admin_access_username' => 'admin',
+            'admin_access_password' => 'original-secret',
+        ]);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->put(route('admin.sites.update', $site), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Keep Access Password Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'enabled_modules' => ['news'],
+                'admin_access_url' => 'https://keep.example.test/cms',
+                'admin_access_username' => 'editor',
+                'admin_access_password' => '',
+            ])
+            ->assertRedirect(route('admin.sites.edit', $site));
+
+        $access = app(SiteDeploymentManager::class)->adminAccessForDisplay($site->refresh());
+        $this->assertSame('https://keep.example.test/cms', $access['url']);
+        $this->assertSame('editor', $access['username']);
+        $this->assertSame('original-secret', $access['password']);
+    }
+
     private function adminAndTenant(): array
     {
         $this->ensureSchema();

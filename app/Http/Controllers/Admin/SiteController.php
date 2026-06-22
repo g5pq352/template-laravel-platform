@@ -85,6 +85,9 @@ class SiteController extends Controller
                 'production_domain' => '',
                 'frontend_url' => '',
                 'admin_url' => '',
+                'admin_access_url' => '',
+                'admin_access_username' => 'admin',
+                'admin_access_password' => '',
                 'git_repository_url' => '',
                 'initialized_at' => '',
                 'domain_bound_at' => '',
@@ -130,6 +133,7 @@ class SiteController extends Controller
         $site->load(['domains' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('domain')]);
         $database = Arr::wrap($site->settings['database'] ?? []);
         $deployment = Arr::wrap($site->settings['deployment'] ?? []);
+        $adminAccess = app(SiteDeploymentManager::class)->adminAccessForDisplay($site);
 
         return view('admin.sites.form', [
             'admin' => $context->user(),
@@ -137,7 +141,7 @@ class SiteController extends Controller
             'sites' => $context->sites(),
             'managedSite' => $site,
             'tenants' => $this->tenants(),
-            'adminAccess' => app(SiteDeploymentManager::class)->adminAccessForDisplay($site),
+            'adminAccess' => $adminAccess,
             'values' => [
                 ...$site->attributesToArray(),
                 'domains' => $site->domains->map(fn (SiteDomain $domain) => [
@@ -161,6 +165,9 @@ class SiteController extends Controller
                 'production_domain' => $deployment['production_domain'] ?? '',
                 'frontend_url' => $deployment['frontend_url'] ?? '',
                 'admin_url' => $deployment['admin_url'] ?? '',
+                'admin_access_url' => $adminAccess['url'] ?? '',
+                'admin_access_username' => $adminAccess['username'] ?? 'admin',
+                'admin_access_password' => '',
                 'git_repository_url' => $deployment['git_repository_url'] ?? '',
                 'initialized_at' => $deployment['initialized_at'] ?? '',
                 'domain_bound_at' => $deployment['domain_bound_at'] ?? '',
@@ -169,7 +176,7 @@ class SiteController extends Controller
         ]);
     }
 
-    public function update(AdminContext $context, Request $request, Site $site, SiteModuleManager $modules): RedirectResponse
+    public function update(AdminContext $context, Request $request, Site $site, SiteDeploymentManager $deployment, SiteModuleManager $modules): RedirectResponse
     {
         $this->authorizeMainSite($context);
 
@@ -179,7 +186,8 @@ class SiteController extends Controller
             $site->update($this->sitePayload($data, $site));
             $this->syncDomains($site, $data['domains'] ?? []);
         });
-        $modules->syncDatabase($site->refresh());
+        $site = $deployment->syncAdminAccess($site->refresh(), $data);
+        $modules->syncDatabase($site);
 
         if ($site->status !== 'active' && (int) $request->session()->get('current_site_id') === (int) $site->id) {
             $request->session()->forget('current_site_id');
@@ -298,6 +306,9 @@ class SiteController extends Controller
             'production_domain' => ['nullable', 'string', 'max:255'],
             'frontend_url' => ['nullable', 'string', 'max:255'],
             'admin_url' => ['nullable', 'string', 'max:255'],
+            'admin_access_url' => ['nullable', 'string', 'max:255'],
+            'admin_access_username' => ['nullable', 'string', 'max:150'],
+            'admin_access_password' => ['nullable', 'string', 'max:255'],
             'git_repository_url' => ['nullable', 'string', 'max:500'],
             'initialized_at' => ['nullable', 'string', 'max:100'],
             'domain_bound_at' => ['nullable', 'string', 'max:100'],

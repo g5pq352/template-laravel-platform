@@ -13,22 +13,59 @@ class SiteDeploymentManager
     public function ensureAdminAccess(Site $site): Site
     {
         $settings = Arr::wrap($site->settings ?? []);
-        if (!empty($settings['admin_access']['username']) && !empty($settings['admin_access']['password'])) {
-            return $site;
+        $access = Arr::wrap($settings['admin_access'] ?? []);
+        $changed = false;
+
+        if (empty($access['url'])) {
+            $access['url'] = $this->adminUrl($site);
+            $changed = true;
         }
 
-        $settings['admin_access'] = [
-            'url' => $this->adminUrl($site),
-            'username' => 'admin',
-            'password' => Crypt::encryptString($this->generatePassword()),
-            'generated_at' => now()->format('Y-m-d H:i:s'),
-        ];
+        if (empty($access['username'])) {
+            $access['username'] = 'admin';
+            $changed = true;
+        }
+
+        if (empty($access['password'])) {
+            $access['password'] = Crypt::encryptString($this->generatePassword());
+            $access['generated_at'] = now()->format('Y-m-d H:i:s');
+            $changed = true;
+        }
+
+        $settings['admin_access'] = $access;
 
         $this->mergeDeployment($settings, [
             'initialized_at' => $settings['deployment']['initialized_at'] ?? now()->format('Y-m-d H:i:s'),
             'admin_url' => $settings['deployment']['admin_url'] ?? $settings['admin_access']['url'],
         ]);
 
+        if (!$changed && $settings === Arr::wrap($site->settings ?? [])) {
+            return $site;
+        }
+
+        $site->forceFill(['settings' => $settings])->save();
+
+        return $site->refresh();
+    }
+
+    public function syncAdminAccess(Site $site, array $data): Site
+    {
+        $settings = Arr::wrap($site->settings ?? []);
+        $access = Arr::wrap($settings['admin_access'] ?? []);
+
+        $access['url'] = trim((string) ($data['admin_access_url'] ?? '')) ?: $this->adminUrl($site);
+        $access['username'] = trim((string) ($data['admin_access_username'] ?? '')) ?: 'admin';
+
+        $plainPassword = trim((string) ($data['admin_access_password'] ?? ''));
+        if ($plainPassword !== '') {
+            $access['password'] = Crypt::encryptString($plainPassword);
+            $access['updated_at'] = now()->format('Y-m-d H:i:s');
+        } elseif (empty($access['password'])) {
+            $access['password'] = Crypt::encryptString($this->generatePassword());
+            $access['generated_at'] = now()->format('Y-m-d H:i:s');
+        }
+
+        $settings['admin_access'] = $access;
         $site->forceFill(['settings' => $settings])->save();
 
         return $site->refresh();

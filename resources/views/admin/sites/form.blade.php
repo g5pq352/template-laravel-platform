@@ -228,26 +228,28 @@
                                 <div class="form-group row align-items-start cms-form-row">
                                     <label class="col-lg-3 control-label text-lg-end mb-0">後台登入資訊</label>
                                     <div class="col-lg-8">
-                                        <div class="p-3 border rounded bg-light">
-                                            <div class="mb-2">
-                                                <span class="font-weight-semibold">後台網址：</span>
-                                                @if(!empty($adminAccess['url']))
-                                                    <a href="{{ $adminAccess['url'] }}" target="_blank" rel="noopener">{{ $adminAccess['url'] }}</a>
-                                                @else
-                                                    <span class="text-muted">尚未建立</span>
-                                                @endif
+                                        <div class="p-3 border rounded bg-light site-admin-access-box">
+                                            <div class="mb-3">
+                                                <label class="font-weight-semibold mb-1">後台網址</label>
+                                                <div class="input-group">
+                                                    <input type="text" name="admin_access_url" class="form-control" value="{{ old('admin_access_url', $values['admin_access_url'] ?? '') }}" placeholder="https://example.com.tw/cms">
+                                                    @if(!empty($adminAccess['url']))
+                                                        <a class="btn btn-light" href="{{ $adminAccess['url'] }}" target="_blank" rel="noopener">開啟</a>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="font-weight-semibold mb-1">帳號</label>
+                                                <input type="text" name="admin_access_username" class="form-control" value="{{ old('admin_access_username', $values['admin_access_username'] ?? 'admin') }}" placeholder="admin">
                                             </div>
                                             <div class="mb-2">
-                                                <span class="font-weight-semibold">帳號：</span>
-                                                <code>{{ $adminAccess['username'] ?? 'admin' }}</code>
-                                            </div>
-                                            <div class="mb-2">
-                                                <span class="font-weight-semibold">密碼：</span>
-                                                <code>{{ $adminAccess['password'] ?? '尚未建立' }}</code>
+                                                <label class="font-weight-semibold mb-1">密碼</label>
+                                                <input type="text" name="admin_access_password" class="form-control" value="{{ old('admin_access_password', $adminAccess['password'] ?? '') }}" autocomplete="new-password" placeholder="留空表示不變更">
                                             </div>
                                             @if(!empty($adminAccess['generated_at']))
                                                 <div class="text-muted text-2">建立時間：{{ $adminAccess['generated_at'] }}</div>
                                             @endif
+                                            <div class="text-danger text-2 mt-2">新增站台時會自動產生，儲存後仍可手動修改。</div>
                                         </div>
                                     </div>
                                 </div>
