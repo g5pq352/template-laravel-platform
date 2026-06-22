@@ -51,7 +51,7 @@ class SiteFrontendProjectManager
             return $this->normalizePath($configured);
         }
 
-        return dirname($source) . DIRECTORY_SEPARATOR . $site->slug . '-next-platform';
+        return dirname($source) . DIRECTORY_SEPARATOR . $site->slug;
     }
 
     private function copyDirectory(string $source, string $target): void

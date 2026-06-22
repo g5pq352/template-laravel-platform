@@ -482,11 +482,12 @@ class SiteController extends Controller
         $settings['frontend_template_path'] = $this->nullableSetting($data['frontend_template_path'] ?? null);
         $settings['repository_path'] = $this->nullableSetting($data['repository_path'] ?? null);
 
+        $databaseName = $this->databaseNameFromSlug((string) $data['slug']);
         $database = Arr::wrap($settings['database'] ?? []);
-        $database['connection'] = $this->nullableSetting($data['db_connection'] ?? null);
+        $database['connection'] = $this->nullableSetting($data['db_connection'] ?? null) ?? $databaseName;
         $database['host'] = $this->nullableSetting($data['db_host'] ?? null);
         $database['port'] = $this->nullableSetting($data['db_port'] ?? null);
-        $database['database'] = $this->nullableSetting($data['db_database'] ?? null);
+        $database['database'] = $this->nullableSetting($data['db_database'] ?? null) ?? $databaseName;
         $database['username'] = $this->nullableSetting($data['db_username'] ?? null);
 
         if ($this->nullableSetting($data['db_password'] ?? null) !== null) {
@@ -555,6 +556,17 @@ class SiteController extends Controller
         $value = trim((string) $value);
 
         return $value === '' ? null : $value;
+    }
+
+    private function databaseNameFromSlug(string $slug): string
+    {
+        $name = Str::of($slug)
+            ->lower()
+            ->replaceMatches('/[^a-z0-9]+/', '_')
+            ->trim('_')
+            ->toString();
+
+        return $name !== '' ? $name : 'site';
     }
 
     private function normalizeStandardModuleKey(string $module): string

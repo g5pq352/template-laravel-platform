@@ -184,7 +184,7 @@ class AdminSiteManagementTest extends TestCase
         [$admin, $tenant] = $this->adminAndTenant();
         $slug = 'frontend-project-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
         $templatePath = storage_path('framework/testing/next-template-' . $slug);
-        $targetPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, storage_path('framework/testing/' . $slug . '-next-platform'));
+        $targetPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, storage_path('framework/testing/' . $slug));
 
         File::deleteDirectory($templatePath);
         File::deleteDirectory($targetPath);
@@ -208,7 +208,6 @@ class AdminSiteManagementTest extends TestCase
                 'currency_code' => 'TWD',
                 'api_access_token' => 'site-front-token',
                 'frontend_template_path' => $templatePath,
-                'repository_path' => $targetPath,
                 'enabled_modules' => ['news'],
             ]);
 
@@ -227,6 +226,31 @@ class AdminSiteManagementTest extends TestCase
         $this->assertSame($targetPath, $site->settings['repository_path']);
         $this->assertSame($targetPath, $site->settings['deployment']['frontend_project_path']);
         $this->assertNotEmpty($site->settings['deployment']['frontend_generated_at']);
+    }
+
+    public function test_site_database_defaults_use_site_slug(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'db-name-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->post(route('admin.sites.store'), [
+                'tenant_id' => $tenant->id,
+                'name' => 'DB Name Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'enabled_modules' => ['news'],
+            ]);
+
+        $site = Site::query()->where('slug', $slug)->firstOrFail();
+        $expected = str_replace('-', '_', $slug);
+
+        $this->assertSame($expected, $site->settings['database']['connection']);
+        $this->assertSame($expected, $site->settings['database']['database']);
     }
 
     public function test_site_with_managed_data_cannot_be_deleted(): void

@@ -282,8 +282,8 @@
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">前端 Git 專案路徑</label>
                                 <div class="col-lg-8">
-                                    <input type="text" name="repository_path" class="form-control" value="{{ old('repository_path', $values['repository_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a-next-platform">
-                                    <div class="text-danger text-2 mt-2">新增站台時會產生這個實體 Next 專案；留空自動建立為「站台代號-next-platform」。</div>
+                                    <input type="text" name="repository_path" class="form-control" value="{{ old('repository_path', $values['repository_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a">
+                                    <div class="text-danger text-2 mt-2">新增站台時會產生這個實體 Next 專案；留空自動建立為「站台代號」。</div>
                                 </div>
                             </div>
 
@@ -330,6 +330,7 @@
                                 <label class="col-lg-3 control-label text-lg-end mb-0">資料庫連線名稱</label>
                                 <div class="col-lg-7">
                                     <input type="text" name="db_connection" class="form-control" value="{{ old('db_connection', $values['db_connection'] ?? '') }}" placeholder="site_a">
+                                    <div class="text-danger text-2 mt-2">留空會用站台代號自動產生，例如 site-a 會變成 site_a。</div>
                                 </div>
                             </div>
 
@@ -347,6 +348,7 @@
                                 <label class="col-lg-3 control-label text-lg-end mb-0">資料庫名稱</label>
                                 <div class="col-lg-7">
                                     <input type="text" name="db_database" class="form-control" value="{{ old('db_database', $values['db_database'] ?? '') }}">
+                                    <div class="text-danger text-2 mt-2">留空會用站台代號自動產生，例如 site-a 會變成 site_a。</div>
                                 </div>
                             </div>
 
@@ -434,6 +436,34 @@
         const moduleTemplate = document.getElementById('custom-module-row-template');
         let nextIndex = {{ count($domains) }};
         let nextModuleIndex = {{ count($customModules) }};
+        const isEdit = @json($isEdit);
+        const slugInput = document.querySelector('input[name="slug"]');
+        const dbConnectionInput = document.querySelector('input[name="db_connection"]');
+        const dbDatabaseInput = document.querySelector('input[name="db_database"]');
+        let lastAutoDbName = '';
+
+        function databaseNameFromSlug(slug) {
+            return String(slug || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '') || 'site';
+        }
+
+        function syncSlugDefaults() {
+            if (isEdit || !slugInput) return;
+
+            const nextDbName = databaseNameFromSlug(slugInput.value);
+            [dbConnectionInput, dbDatabaseInput].forEach(function (input) {
+                if (!input) return;
+                if (input.value === '' || input.value === lastAutoDbName) {
+                    input.value = nextDbName;
+                }
+            });
+            lastAutoDbName = nextDbName;
+        }
+
+        slugInput?.addEventListener('input', syncSlugDefaults);
+        syncSlugDefaults();
 
         document.querySelector('.js-add-domain')?.addEventListener('click', function () {
             const html = template.innerHTML.replaceAll('__INDEX__', String(nextIndex++));
