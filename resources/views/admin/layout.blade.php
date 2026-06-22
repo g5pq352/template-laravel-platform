@@ -59,31 +59,48 @@
 
         .cms-count { color: #4f5b66; font-size: 13px; }
 
+        .header-right {
+            align-items: center;
+            display: flex;
+            flex-wrap: nowrap;
+            height: 60px;
+            justify-content: flex-end;
+            white-space: nowrap;
+        }
+
         .cms-site-switcher {
             align-items: center;
             display: flex;
-            min-width: 190px;
+            flex: 0 0 auto;
+            min-width: 0;
+            width: auto;
         }
 
         .cms-site-switcher form {
             align-items: center;
             display: flex;
-            gap: 10px;
+            flex: 0 0 auto;
+            gap: 8px;
             margin: 0;
-            width: 100%;
+            width: auto;
         }
 
         .cms-site-switcher-label {
             color: #777;
             font-size: 13px;
+            line-height: 1;
             margin: 0;
             white-space: nowrap;
         }
 
         .cms-site-switcher select {
-            height: 38px;
-            max-width: 260px;
-            min-width: 190px;
+            flex: 0 0 190px;
+            height: 34px;
+            max-width: 210px;
+            min-width: 150px;
+            padding-bottom: 6px;
+            padding-top: 6px;
+            width: 190px;
         }
 
         .ecommerce-form .cms-form-row {
@@ -147,12 +164,14 @@
         @media (max-width: 991px) {
             .cms-count { text-align: left; }
             .cms-site-switcher {
-                min-width: 150px;
+                min-width: 0;
             }
 
             .cms-site-switcher select {
-                min-width: 150px;
-                max-width: 180px;
+                flex-basis: 140px;
+                min-width: 120px;
+                max-width: 150px;
+                width: 140px;
             }
         }
     </style>
