@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AdminUser;
 use App\Models\Site;
 use App\Models\Tenant;
+use App\Support\CmsSetLoader;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -44,6 +45,14 @@ class AdminSiteManagementTest extends TestCase
                 'timezone' => 'Asia/Taipei',
                 'currency_code' => 'TWD',
                 'api_allowed_origins' => "https://frontend.example.test\nhttps://www.example.test",
+                'cms_set_path' => 'sites/test-site/cms/set',
+                'repository_path' => 'D:\wamp64\www\test-site',
+                'db_connection' => 'test_site',
+                'db_host' => '127.0.0.1',
+                'db_port' => '3307',
+                'db_database' => 'test_site_db',
+                'db_username' => 'test_user',
+                'db_password' => 'secret',
                 'primary_domain_index' => '1',
                 'domains' => [
                     ['domain' => 'https://' . $slug . '.secondary.test', 'force_https' => '0'],
@@ -56,6 +65,16 @@ class AdminSiteManagementTest extends TestCase
         $response->assertRedirect($site ? route('admin.sites.edit', $site) : route('admin.sites.index'));
         $this->assertNotNull($site);
         $this->assertSame(['https://frontend.example.test', 'https://www.example.test'], $site->settings['api_allowed_origins']);
+        $this->assertSame('sites/test-site/cms/set', $site->settings['cms_set_path']);
+        $this->assertSame('D:\wamp64\www\test-site', $site->settings['repository_path']);
+        $this->assertSame([
+            'connection' => 'test_site',
+            'host' => '127.0.0.1',
+            'port' => '3307',
+            'database' => 'test_site_db',
+            'username' => 'test_user',
+            'password' => 'secret',
+        ], $site->settings['database']);
         $this->assertDatabaseHas('site_domains', [
             'site_id' => $site->id,
             'domain' => $domain,
@@ -192,6 +211,46 @@ class AdminSiteManagementTest extends TestCase
             ])
             ->get(route('admin.sites.index'))
             ->assertForbidden();
+    }
+
+    public function test_site_specific_set_files_override_shared_set_files(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $setPath = storage_path('framework/testing/site-set-' . strtolower(substr(md5((string) microtime(true)), 0, 8)));
+
+        if (!is_dir($setPath)) {
+            mkdir($setPath, 0777, true);
+        }
+
+        file_put_contents($setPath . DIRECTORY_SEPARATOR . 'newsSet.php', <<<'PHP'
+<?php
+
+return [
+    'module' => 'news',
+    'moduleName' => '站台專屬消息',
+    'model' => \App\Models\Content::class,
+    'strategy' => 'content',
+    'content_type' => 'news',
+    'listPage' => [
+        'columns' => [],
+    ],
+];
+PHP);
+
+        $site = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Set Override Site',
+            'slug' => 'set-override-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8)),
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => ['cms_set_path' => $setPath],
+        ]);
+
+        $config = CmsSetLoader::get('news', 'list', $site);
+
+        $this->assertSame('站台專屬消息', $config['moduleName'] ?? null);
     }
 
     private function adminAndTenant(): array

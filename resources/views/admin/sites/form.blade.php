@@ -74,6 +74,11 @@
                                     <i class="fas fa-code me-2"></i> API 設定
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#site-platform" role="tab">
+                                    <i class="fas fa-folder-open me-2"></i> 站點架構
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -162,6 +167,61 @@
                                 <div class="col-lg-7">
                                     <textarea name="api_allowed_origins" class="form-control" rows="6" placeholder="https://example.com">{{ old('api_allowed_origins', $values['api_allowed_origins'] ?? '') }}</textarea>
                                     <div class="text-danger text-2 mt-2">一行一個來源，保留給 API / CORS 白名單使用。</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="site-platform" class="tab-pane">
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">Set 設定檔目錄</label>
+                                <div class="col-lg-8">
+                                    <input type="text" name="cms_set_path" class="form-control" value="{{ old('cms_set_path', $values['cms_set_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a\cms\set">
+                                    <div class="text-danger text-2 mt-2">可填絕對路徑或 Laravel 專案相對路徑；同名 *Set.php 會覆蓋共用設定。</div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">Git 專案路徑</label>
+                                <div class="col-lg-8">
+                                    <input type="text" name="repository_path" class="form-control" value="{{ old('repository_path', $values['repository_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">資料庫連線名稱</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="db_connection" class="form-control" value="{{ old('db_connection', $values['db_connection'] ?? '') }}" placeholder="site_a">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">DB Host / Port</label>
+                                <div class="col-lg-5">
+                                    <input type="text" name="db_host" class="form-control" value="{{ old('db_host', $values['db_host'] ?? '') }}" placeholder="127.0.0.1">
+                                </div>
+                                <div class="col-lg-2">
+                                    <input type="text" name="db_port" class="form-control" value="{{ old('db_port', $values['db_port'] ?? '3306') }}" placeholder="3306">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">資料庫名稱</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="db_database" class="form-control" value="{{ old('db_database', $values['db_database'] ?? '') }}">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">資料庫帳號</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="db_username" class="form-control" value="{{ old('db_username', $values['db_username'] ?? '') }}">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">資料庫密碼</label>
+                                <div class="col-lg-7">
+                                    <input type="password" name="db_password" class="form-control" value="{{ old('db_password', $values['db_password'] ?? '') }}" autocomplete="new-password" placeholder="{{ $isEdit ? '留空表示不變更' : '' }}">
                                 </div>
                             </div>
                         </div>

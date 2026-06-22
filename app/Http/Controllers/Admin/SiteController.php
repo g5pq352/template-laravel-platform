@@ -68,6 +68,14 @@ class SiteController extends Controller
                 'currency_code' => 'TWD',
                 'domains' => [],
                 'api_allowed_origins' => '',
+                'cms_set_path' => '',
+                'repository_path' => '',
+                'db_connection' => '',
+                'db_host' => '',
+                'db_port' => '3306',
+                'db_database' => '',
+                'db_username' => '',
+                'db_password' => '',
             ],
         ]);
     }
@@ -98,6 +106,7 @@ class SiteController extends Controller
         $this->authorizeMainSite($context);
 
         $site->load(['domains' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('domain')]);
+        $database = Arr::wrap($site->settings['database'] ?? []);
 
         return view('admin.sites.form', [
             'admin' => $context->user(),
@@ -114,6 +123,14 @@ class SiteController extends Controller
                     'force_https' => $domain->force_https,
                 ])->all(),
                 'api_allowed_origins' => implode("\n", Arr::wrap($site->settings['api_allowed_origins'] ?? [])),
+                'cms_set_path' => $site->settings['cms_set_path'] ?? '',
+                'repository_path' => $site->settings['repository_path'] ?? '',
+                'db_connection' => $database['connection'] ?? '',
+                'db_host' => $database['host'] ?? '',
+                'db_port' => $database['port'] ?? '3306',
+                'db_database' => $database['database'] ?? '',
+                'db_username' => $database['username'] ?? '',
+                'db_password' => '',
             ],
         ]);
     }
@@ -125,7 +142,7 @@ class SiteController extends Controller
         $data = $this->validatedData($request, $site);
 
         DB::transaction(function () use ($site, $data): void {
-            $site->update($this->sitePayload($data));
+            $site->update($this->sitePayload($data, $site));
             $this->syncDomains($site, $data['domains'] ?? []);
         });
 
@@ -212,6 +229,14 @@ class SiteController extends Controller
             'timezone' => ['required', 'string', 'max:80'],
             'currency_code' => ['required', 'string', 'size:3'],
             'api_allowed_origins' => ['nullable', 'string'],
+            'cms_set_path' => ['nullable', 'string', 'max:500'],
+            'repository_path' => ['nullable', 'string', 'max:500'],
+            'db_connection' => ['nullable', 'string', 'max:80'],
+            'db_host' => ['nullable', 'string', 'max:255'],
+            'db_port' => ['nullable', 'string', 'max:10'],
+            'db_database' => ['nullable', 'string', 'max:150'],
+            'db_username' => ['nullable', 'string', 'max:150'],
+            'db_password' => ['nullable', 'string', 'max:255'],
             'primary_domain_index' => ['nullable'],
             'domains' => ['nullable', 'array'],
             'domains.*.id' => ['nullable', 'integer', 'exists:site_domains,id'],
@@ -277,7 +302,7 @@ class SiteController extends Controller
         return $data;
     }
 
-    private function sitePayload(array $data): array
+    private function sitePayload(array $data, ?Site $site = null): array
     {
         $origins = collect(preg_split('/\R/', (string) ($data['api_allowed_origins'] ?? '')) ?: [])
             ->map(fn (string $origin) => trim($origin))
@@ -285,6 +310,30 @@ class SiteController extends Controller
             ->unique()
             ->values()
             ->all();
+        $settings = Arr::wrap($site?->settings ?? []);
+        $settings['api_allowed_origins'] = $origins;
+        $settings['cms_set_path'] = $this->nullableSetting($data['cms_set_path'] ?? null);
+        $settings['repository_path'] = $this->nullableSetting($data['repository_path'] ?? null);
+
+        $database = Arr::wrap($settings['database'] ?? []);
+        $database['connection'] = $this->nullableSetting($data['db_connection'] ?? null);
+        $database['host'] = $this->nullableSetting($data['db_host'] ?? null);
+        $database['port'] = $this->nullableSetting($data['db_port'] ?? null);
+        $database['database'] = $this->nullableSetting($data['db_database'] ?? null);
+        $database['username'] = $this->nullableSetting($data['db_username'] ?? null);
+
+        if ($this->nullableSetting($data['db_password'] ?? null) !== null) {
+            $database['password'] = (string) $data['db_password'];
+        }
+
+        $database = array_filter($database, fn ($value) => $value !== null && $value !== '');
+        if ($database === []) {
+            unset($settings['database']);
+        } else {
+            $settings['database'] = $database;
+        }
+
+        $settings = array_filter($settings, fn ($value) => !($value === null || $value === [] || $value === ''));
 
         return [
             'tenant_id' => $data['tenant_id'],
@@ -294,10 +343,15 @@ class SiteController extends Controller
             'default_locale' => $data['default_locale'],
             'timezone' => $data['timezone'],
             'currency_code' => strtoupper($data['currency_code']),
-            'settings' => [
-                'api_allowed_origins' => $origins,
-            ],
+            'settings' => $settings,
         ];
+    }
+
+    private function nullableSetting(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     private function syncDomains(Site $site, array $domains): void
