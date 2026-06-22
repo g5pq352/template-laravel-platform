@@ -53,6 +53,18 @@ class AdminSiteManagementTest extends TestCase
                 'db_database' => 'test_site_db',
                 'db_username' => 'test_user',
                 'db_password' => 'secret',
+                'enabled_modules' => ['news', 'products'],
+                'custom_modules' => [
+                    ['name' => 'Blog', 'slug' => 'blog', 'type' => 'single'],
+                    ['name' => 'Events', 'slug' => 'events', 'type' => 'multi'],
+                ],
+                'production_domain' => $domain,
+                'frontend_url' => 'https://' . $domain,
+                'admin_url' => 'https://' . $domain . '/cms',
+                'git_repository_url' => 'https://github.com/example/test-site.git',
+                'initialized_at' => '2026-06-22 10:00:00',
+                'domain_bound_at' => '2026-06-22 11:00:00',
+                'deployment_notes' => 'Custom site notes.',
                 'primary_domain_index' => '1',
                 'domains' => [
                     ['domain' => 'https://' . $slug . '.secondary.test', 'force_https' => '0'],
@@ -75,6 +87,20 @@ class AdminSiteManagementTest extends TestCase
             'username' => 'test_user',
             'password' => 'secret',
         ], $site->settings['database']);
+        $this->assertSame(['news', 'products'], $site->settings['enabled_modules']);
+        $this->assertSame([
+            ['name' => 'Blog', 'slug' => 'blog', 'type' => 'single'],
+            ['name' => 'Events', 'slug' => 'events', 'type' => 'multi'],
+        ], $site->settings['custom_modules']);
+        $this->assertSame([
+            'production_domain' => $domain,
+            'frontend_url' => 'https://' . $domain,
+            'admin_url' => 'https://' . $domain . '/cms',
+            'git_repository_url' => 'https://github.com/example/test-site.git',
+            'initialized_at' => '2026-06-22 10:00:00',
+            'domain_bound_at' => '2026-06-22 11:00:00',
+            'notes' => 'Custom site notes.',
+        ], $site->settings['deployment']);
         $this->assertDatabaseHas('site_domains', [
             'site_id' => $site->id,
             'domain' => $domain,

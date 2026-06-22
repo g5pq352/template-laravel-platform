@@ -13,6 +13,23 @@
             $domains[$domainIndex]['is_primary'] = (string) $domainIndex === (string) $primaryDomainIndex;
         }
     }
+    $enabledModules = old('enabled_modules', $values['enabled_modules'] ?? []);
+    $customModules = old('custom_modules', $values['custom_modules'] ?? []);
+    if ($customModules === []) {
+        $customModules = [['name' => '', 'slug' => '', 'type' => 'single']];
+    }
+    $standardModules = [
+        'news' => '最新消息',
+        'products' => '產品管理',
+        'contact' => '聯絡我們',
+    ];
+    $customModuleTemplates = [
+        'single' => '一般內容模組（單層分類）',
+        'multi' => '進階內容模組（多層分類）',
+        'contactus' => '純表單模組（不含分類與標籤）',
+        'info' => '單頁設定模組',
+        'list_only' => '純列表模組',
+    ];
 @endphp
 
 @section('title', $isEdit ? '站台編輯' : '站台新增')
@@ -68,6 +85,9 @@
                         </a>
                         <a class="nav-link" id="site-api-tab" data-bs-toggle="pill" data-bs-target="#site-api" role="tab" aria-controls="site-api" aria-selected="false">
                             <i class="fas fa-code me-2"></i> API 設定
+                        </a>
+                        <a class="nav-link" id="site-modules-tab" data-bs-toggle="pill" data-bs-target="#site-modules" role="tab" aria-controls="site-modules" aria-selected="false">
+                            <i class="fas fa-puzzle-piece me-2"></i> 模組功能
                         </a>
                         <a class="nav-link" id="site-platform-tab" data-bs-toggle="pill" data-bs-target="#site-platform" role="tab" aria-controls="site-platform" aria-selected="false">
                             <i class="fas fa-folder-open me-2"></i> 站點架構
@@ -163,6 +183,41 @@
                             </div>
                         </div>
 
+                        <div id="site-modules" class="tab-pane fade" role="tabpanel" aria-labelledby="site-modules-tab">
+                            <div class="form-group row align-items-start cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">標準模組</label>
+                                <div class="col-lg-8">
+                                    @foreach($standardModules as $moduleValue => $moduleLabel)
+                                        <label class="me-4 mb-2 font-weight-semibold">
+                                            <input type="checkbox" name="enabled_modules[]" value="{{ $moduleValue }}" @checked(in_array($moduleValue, $enabledModules, true))>
+                                            {{ $moduleLabel }}
+                                        </label>
+                                    @endforeach
+                                    <div class="text-danger text-2 mt-2">勾選後代表該站啟用標準後台模組；實際欄位仍由該站 *Set.php 控制。</div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-start cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">自訂模組清單</label>
+                                <div class="col-lg-8">
+                                    <div class="site-custom-module-list">
+                                        @foreach($customModules as $index => $customModule)
+                                            @include('admin.sites.partials.custom-module-row', [
+                                                'index' => $index,
+                                                'module' => $customModule,
+                                                'templates' => $customModuleTemplates,
+                                            ])
+                                        @endforeach
+                                    </div>
+
+                                    <button type="button" class="btn btn-light mt-3 js-add-custom-module">
+                                        <i class="fas fa-plus-circle text-success"></i> 新增自訂模組
+                                    </button>
+                                    <div class="text-danger text-2 mt-2">自訂模組只記錄站台需求與範本類型，實際功能以該站專屬 *Set.php 實作。</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div id="site-platform" class="tab-pane fade" role="tabpanel" aria-labelledby="site-platform-tab">
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">Set 設定檔目錄</label>
@@ -176,6 +231,13 @@
                                 <label class="col-lg-3 control-label text-lg-end mb-0">Git 專案路徑</label>
                                 <div class="col-lg-8">
                                     <input type="text" name="repository_path" class="form-control" value="{{ old('repository_path', $values['repository_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">GitHub Repo URL</label>
+                                <div class="col-lg-8">
+                                    <input type="text" name="git_repository_url" class="form-control" value="{{ old('git_repository_url', $values['git_repository_url'] ?? '') }}" placeholder="https://github.com/org/site.git">
                                 </div>
                             </div>
 
@@ -216,6 +278,48 @@
                                     <input type="password" name="db_password" class="form-control" value="{{ old('db_password', $values['db_password'] ?? '') }}" autocomplete="new-password" placeholder="{{ $isEdit ? '留空表示不變更' : '' }}">
                                 </div>
                             </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">正式域名</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="production_domain" class="form-control" value="{{ old('production_domain', $values['production_domain'] ?? '') }}" placeholder="example.com.tw">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">前台網址</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="frontend_url" class="form-control" value="{{ old('frontend_url', $values['frontend_url'] ?? '') }}" placeholder="https://example.com.tw">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">後台網址</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="admin_url" class="form-control" value="{{ old('admin_url', $values['admin_url'] ?? '') }}" placeholder="https://example.com.tw/cms">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">初始化完成時間</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="initialized_at" class="form-control" value="{{ old('initialized_at', $values['initialized_at'] ?? '') }}">
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">域名綁定完成時間</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="domain_bound_at" class="form-control" value="{{ old('domain_bound_at', $values['domain_bound_at'] ?? '') }}">
+                                </div>
+                            </div>
+
+                            <div class="form-group row cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end pt-2 mt-1">備註 / 開發筆記</label>
+                                <div class="col-lg-7">
+                                    <textarea name="deployment_notes" class="form-control" rows="5">{{ old('deployment_notes', $values['deployment_notes'] ?? '') }}</textarea>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -227,6 +331,13 @@
 <template id="domain-row-template">
     @include('admin.sites.partials.domain-row', ['index' => '__INDEX__', 'domain' => ['domain' => '', 'is_primary' => false, 'force_https' => false]])
 </template>
+<template id="custom-module-row-template">
+    @include('admin.sites.partials.custom-module-row', [
+        'index' => '__INDEX__',
+        'module' => ['name' => '', 'slug' => '', 'type' => 'single'],
+        'templates' => $customModuleTemplates,
+    ])
+</template>
 @endsection
 
 @push('scripts')
@@ -234,7 +345,10 @@
     document.addEventListener('DOMContentLoaded', function () {
         const list = document.querySelector('.site-domain-list');
         const template = document.getElementById('domain-row-template');
+        const moduleList = document.querySelector('.site-custom-module-list');
+        const moduleTemplate = document.getElementById('custom-module-row-template');
         let nextIndex = {{ count($domains) }};
+        let nextModuleIndex = {{ count($customModules) }};
 
         document.querySelector('.js-add-domain')?.addEventListener('click', function () {
             const html = template.innerHTML.replaceAll('__INDEX__', String(nextIndex++));
@@ -251,6 +365,18 @@
             if (!list.querySelector('input[type="radio"]:checked')) {
                 list.querySelector('input[type="radio"]')?.click();
             }
+        });
+
+        document.querySelector('.js-add-custom-module')?.addEventListener('click', function () {
+            const html = moduleTemplate.innerHTML.replaceAll('__INDEX__', String(nextModuleIndex++));
+            moduleList.insertAdjacentHTML('beforeend', html);
+        });
+
+        moduleList?.addEventListener('click', function (event) {
+            const remove = event.target.closest('.js-remove-custom-module');
+            if (!remove) return;
+
+            remove.closest('.site-custom-module-row')?.remove();
         });
     });
 </script>

@@ -76,6 +76,15 @@ class SiteController extends Controller
                 'db_database' => '',
                 'db_username' => '',
                 'db_password' => '',
+                'enabled_modules' => ['news', 'products', 'contact'],
+                'custom_modules' => [],
+                'production_domain' => '',
+                'frontend_url' => '',
+                'admin_url' => '',
+                'git_repository_url' => '',
+                'initialized_at' => '',
+                'domain_bound_at' => '',
+                'deployment_notes' => '',
             ],
         ]);
     }
@@ -107,6 +116,7 @@ class SiteController extends Controller
 
         $site->load(['domains' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('domain')]);
         $database = Arr::wrap($site->settings['database'] ?? []);
+        $deployment = Arr::wrap($site->settings['deployment'] ?? []);
 
         return view('admin.sites.form', [
             'admin' => $context->user(),
@@ -131,6 +141,15 @@ class SiteController extends Controller
                 'db_database' => $database['database'] ?? '',
                 'db_username' => $database['username'] ?? '',
                 'db_password' => '',
+                'enabled_modules' => Arr::wrap($site->settings['enabled_modules'] ?? []),
+                'custom_modules' => Arr::wrap($site->settings['custom_modules'] ?? []),
+                'production_domain' => $deployment['production_domain'] ?? '',
+                'frontend_url' => $deployment['frontend_url'] ?? '',
+                'admin_url' => $deployment['admin_url'] ?? '',
+                'git_repository_url' => $deployment['git_repository_url'] ?? '',
+                'initialized_at' => $deployment['initialized_at'] ?? '',
+                'domain_bound_at' => $deployment['domain_bound_at'] ?? '',
+                'deployment_notes' => $deployment['notes'] ?? '',
             ],
         ]);
     }
@@ -237,6 +256,19 @@ class SiteController extends Controller
             'db_database' => ['nullable', 'string', 'max:150'],
             'db_username' => ['nullable', 'string', 'max:150'],
             'db_password' => ['nullable', 'string', 'max:255'],
+            'enabled_modules' => ['nullable', 'array'],
+            'enabled_modules.*' => ['string', Rule::in(['news', 'products', 'contact'])],
+            'custom_modules' => ['nullable', 'array'],
+            'custom_modules.*.name' => ['nullable', 'required_with:custom_modules.*.slug', 'string', 'max:150'],
+            'custom_modules.*.slug' => ['nullable', 'required_with:custom_modules.*.name', 'string', 'max:100', 'regex:/^[a-z0-9][a-z0-9-]*[a-z0-9]$/'],
+            'custom_modules.*.type' => ['nullable', 'required_with:custom_modules.*.name,custom_modules.*.slug', Rule::in(['single', 'multi', 'contactus', 'info', 'list_only'])],
+            'production_domain' => ['nullable', 'string', 'max:255'],
+            'frontend_url' => ['nullable', 'string', 'max:255'],
+            'admin_url' => ['nullable', 'string', 'max:255'],
+            'git_repository_url' => ['nullable', 'string', 'max:500'],
+            'initialized_at' => ['nullable', 'string', 'max:100'],
+            'domain_bound_at' => ['nullable', 'string', 'max:100'],
+            'deployment_notes' => ['nullable', 'string', 'max:2000'],
             'primary_domain_index' => ['nullable'],
             'domains' => ['nullable', 'array'],
             'domains.*.id' => ['nullable', 'integer', 'exists:site_domains,id'],
@@ -331,6 +363,41 @@ class SiteController extends Controller
             unset($settings['database']);
         } else {
             $settings['database'] = $database;
+        }
+
+        $settings['enabled_modules'] = collect($data['enabled_modules'] ?? [])
+            ->map(fn (string $module) => trim($module))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $settings['custom_modules'] = collect($data['custom_modules'] ?? [])
+            ->map(function (array $module): array {
+                return [
+                    'name' => $this->nullableSetting($module['name'] ?? null),
+                    'slug' => $this->nullableSetting($module['slug'] ?? null),
+                    'type' => $this->nullableSetting($module['type'] ?? null) ?: 'single',
+                ];
+            })
+            ->filter(fn (array $module) => $module['name'] || $module['slug'])
+            ->values()
+            ->all();
+
+        $deployment = [
+            'production_domain' => $this->nullableSetting($data['production_domain'] ?? null),
+            'frontend_url' => $this->nullableSetting($data['frontend_url'] ?? null),
+            'admin_url' => $this->nullableSetting($data['admin_url'] ?? null),
+            'git_repository_url' => $this->nullableSetting($data['git_repository_url'] ?? null),
+            'initialized_at' => $this->nullableSetting($data['initialized_at'] ?? null),
+            'domain_bound_at' => $this->nullableSetting($data['domain_bound_at'] ?? null),
+            'notes' => $this->nullableSetting($data['deployment_notes'] ?? null),
+        ];
+        $deployment = array_filter($deployment, fn ($value) => $value !== null && $value !== '');
+        if ($deployment === []) {
+            unset($settings['deployment']);
+        } else {
+            $settings['deployment'] = $deployment;
         }
 
         $settings = array_filter($settings, fn ($value) => !($value === null || $value === [] || $value === ''));
