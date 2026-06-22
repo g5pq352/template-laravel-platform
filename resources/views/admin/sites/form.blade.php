@@ -272,9 +272,18 @@
                             </div>
 
                             <div class="form-group row align-items-center cms-form-row">
-                                <label class="col-lg-3 control-label text-lg-end mb-0">Git 專案路徑</label>
+                                <label class="col-lg-3 control-label text-lg-end mb-0">Next 範本目錄</label>
                                 <div class="col-lg-8">
-                                    <input type="text" name="repository_path" class="form-control" value="{{ old('repository_path', $values['repository_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a">
+                                    <input type="text" name="frontend_template_path" class="form-control" value="{{ old('frontend_template_path', $values['frontend_template_path'] ?? '') }}" placeholder="D:\wamp64\www\template-next-platform">
+                                    <div class="text-danger text-2 mt-2">新增站台時會複製這個 Next 專案；留空使用 template-next-platform。</div>
+                                </div>
+                            </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">前端 Git 專案路徑</label>
+                                <div class="col-lg-8">
+                                    <input type="text" name="repository_path" class="form-control" value="{{ old('repository_path', $values['repository_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a-next-platform">
+                                    <div class="text-danger text-2 mt-2">新增站台時會產生這個實體 Next 專案；留空自動建立為「站台代號-next-platform」。</div>
                                 </div>
                             </div>
 

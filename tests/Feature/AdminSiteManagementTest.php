@@ -9,6 +9,7 @@ use App\Support\CmsSetLoader;
 use App\Support\SiteDeploymentManager;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
@@ -176,6 +177,56 @@ class AdminSiteManagementTest extends TestCase
             'title' => '標籤',
             'route_name' => 'admin.taxonomies.index',
         ]);
+    }
+
+    public function test_creating_site_generates_frontend_project_with_site_env(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'frontend-project-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $templatePath = storage_path('framework/testing/next-template-' . $slug);
+        $targetPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, storage_path('framework/testing/' . $slug . '-next-platform'));
+
+        File::deleteDirectory($templatePath);
+        File::deleteDirectory($targetPath);
+        File::ensureDirectoryExists($templatePath . DIRECTORY_SEPARATOR . 'app');
+        File::ensureDirectoryExists($templatePath . DIRECTORY_SEPARATOR . 'node_modules');
+        File::ensureDirectoryExists($templatePath . DIRECTORY_SEPARATOR . '.next');
+        File::put($templatePath . DIRECTORY_SEPARATOR . 'package.json', json_encode(['name' => 'template-next-platform'], JSON_PRETTY_PRINT));
+        File::put($templatePath . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'page.js', 'export default function Page() { return null; }');
+        File::put($templatePath . DIRECTORY_SEPARATOR . 'node_modules' . DIRECTORY_SEPARATOR . 'skip.txt', 'skip');
+        File::put($templatePath . DIRECTORY_SEPARATOR . '.next' . DIRECTORY_SEPARATOR . 'skip.txt', 'skip');
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->post(route('admin.sites.store'), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Frontend Project Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'api_access_token' => 'site-front-token',
+                'frontend_template_path' => $templatePath,
+                'repository_path' => $targetPath,
+                'enabled_modules' => ['news'],
+            ]);
+
+        $site = Site::query()->where('slug', $slug)->firstOrFail();
+        $env = File::get($targetPath . DIRECTORY_SEPARATOR . '.env.local');
+
+        $this->assertDirectoryExists($targetPath);
+        $this->assertFileExists($targetPath . DIRECTORY_SEPARATOR . 'package.json');
+        $this->assertFileExists($targetPath . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'page.js');
+        $this->assertFileDoesNotExist($targetPath . DIRECTORY_SEPARATOR . 'node_modules' . DIRECTORY_SEPARATOR . 'skip.txt');
+        $this->assertFileDoesNotExist($targetPath . DIRECTORY_SEPARATOR . '.next' . DIRECTORY_SEPARATOR . 'skip.txt');
+        $this->assertStringContainsString('API_BASE_URL=' . rtrim(config('app.url'), '/'), $env);
+        $this->assertStringContainsString('API_SITE=' . $slug, $env);
+        $this->assertStringContainsString('API_LANGUAGE=tw', $env);
+        $this->assertStringContainsString('API_ACCESS_TOKEN=site-front-token', $env);
+        $this->assertSame($targetPath, $site->settings['repository_path']);
+        $this->assertSame($targetPath, $site->settings['deployment']['frontend_project_path']);
+        $this->assertNotEmpty($site->settings['deployment']['frontend_generated_at']);
     }
 
     public function test_site_with_managed_data_cannot_be_deleted(): void

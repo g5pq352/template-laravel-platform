@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Support\AdminContext;
 use App\Support\SiteDeploymentManager;
 use App\Support\SiteBootstrapper;
+use App\Support\SiteFrontendProjectManager;
 use App\Support\SiteModuleManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -73,6 +74,7 @@ class SiteController extends Controller
                 'domains' => [],
                 'api_allowed_origins' => '',
                 'cms_set_path' => '',
+                'frontend_template_path' => '',
                 'repository_path' => '',
                 'db_connection' => '',
                 'db_host' => '',
@@ -101,6 +103,7 @@ class SiteController extends Controller
         Request $request,
         SiteBootstrapper $bootstrapper,
         SiteDeploymentManager $deployment,
+        SiteFrontendProjectManager $frontendProjects,
         SiteModuleManager $modules
     ): RedirectResponse
     {
@@ -118,6 +121,7 @@ class SiteController extends Controller
         });
         $modules->provisionSetFiles($site);
         $site = $deployment->ensureAdminAccess($site);
+        $frontendProjects->provision($site);
 
         $request->session()->put('current_site_id', $site->id);
 
@@ -154,6 +158,7 @@ class SiteController extends Controller
                 'api_access_token' => $site->settings['api_access_token'] ?? '',
                 'deployment' => $deployment,
                 'cms_set_path' => $site->settings['cms_set_path'] ?? '',
+                'frontend_template_path' => $site->settings['frontend_template_path'] ?? '',
                 'repository_path' => $site->settings['repository_path'] ?? '',
                 'db_connection' => $database['connection'] ?? '',
                 'db_host' => $database['host'] ?? '',
@@ -292,6 +297,7 @@ class SiteController extends Controller
             'api_allowed_origins' => ['nullable', 'string'],
             'api_access_token' => ['nullable', 'string', 'max:255'],
             'cms_set_path' => ['nullable', 'string', 'max:500'],
+            'frontend_template_path' => ['nullable', 'string', 'max:500'],
             'repository_path' => ['nullable', 'string', 'max:500'],
             'db_connection' => ['nullable', 'string', 'max:80'],
             'db_host' => ['nullable', 'string', 'max:255'],
@@ -473,6 +479,7 @@ class SiteController extends Controller
         $settings['api_access_token'] = $this->nullableSetting($data['api_access_token'] ?? null)
             ?? ($settings['api_access_token'] ?? Str::random(48));
         $settings['cms_set_path'] = $this->nullableSetting($data['cms_set_path'] ?? null);
+        $settings['frontend_template_path'] = $this->nullableSetting($data['frontend_template_path'] ?? null);
         $settings['repository_path'] = $this->nullableSetting($data['repository_path'] ?? null);
 
         $database = Arr::wrap($settings['database'] ?? []);
