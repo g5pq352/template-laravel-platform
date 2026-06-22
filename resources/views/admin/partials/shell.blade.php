@@ -53,12 +53,12 @@
         </div>
 
         <div class="header-right">
-            @if(isset($site, $sites) && $sites->count() > 1)
+            @if(isset($site, $sites) && $sites->isNotEmpty())
                 <div class="userbox cms-site-switcher">
                     <form method="post" action="{{ route('admin.sites.switch') }}">
                         @csrf
                         <input type="hidden" name="redirect_to" value="{{ $siteSwitchRedirect }}">
-                        <label class="visually-hidden" for="admin-site-switcher">切換站台</label>
+                        <label class="cms-site-switcher-label" for="admin-site-switcher">目前站台</label>
                         <select id="admin-site-switcher" class="form-control select-style-1" name="site_id" onchange="this.form.submit()">
                             @foreach($sites as $switchSite)
                                 <option value="{{ $switchSite->id }}" @selected((int) $site->id === (int) $switchSite->id)>

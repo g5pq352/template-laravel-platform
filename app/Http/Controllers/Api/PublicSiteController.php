@@ -45,6 +45,39 @@ class PublicSiteController extends Controller
         ]);
     }
 
+    public function sites(Request $request): JsonResponse
+    {
+        $currentSite = $this->siteFromRequest($request);
+
+        $sites = Site::query()
+            ->where('tenant_id', $currentSite->tenant_id)
+            ->where('status', 'active')
+            ->with(['domains' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('domain')])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Site $site) => [
+                'id' => $site->id,
+                'name' => $site->name,
+                'slug' => $site->slug,
+                'default_locale' => $site->default_locale,
+                'timezone' => $site->timezone,
+                'currency_code' => $site->currency_code,
+                'primary_domain' => $site->domains->firstWhere('is_primary', true)?->domain
+                    ?? $site->domains->first()?->domain,
+                'domains' => $site->domains
+                    ->map(fn ($domain) => [
+                        'domain' => $domain->domain,
+                        'is_primary' => (bool) $domain->is_primary,
+                        'force_https' => (bool) $domain->force_https,
+                    ])
+                    ->values(),
+                'is_current' => (int) $site->id === (int) $currentSite->id,
+            ])
+            ->values();
+
+        return response()->json(['data' => $sites]);
+    }
+
     public function languages(Request $request): JsonResponse
     {
         $site = $this->siteFromRequest($request);

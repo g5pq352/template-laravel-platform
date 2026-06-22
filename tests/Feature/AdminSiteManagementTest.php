@@ -17,18 +17,7 @@ class AdminSiteManagementTest extends TestCase
 
     public function test_admin_can_open_site_management_page(): void
     {
-        [$admin, $tenant] = $this->adminAndTenant();
-        Site::query()->firstOrCreate(
-            ['slug' => 'switchable-site'],
-            [
-                'tenant_id' => $tenant->id,
-                'name' => 'Switchable Site',
-                'status' => 'active',
-                'default_locale' => 'zh-Hant-TW',
-                'timezone' => 'Asia/Taipei',
-                'currency_code' => 'TWD',
-            ]
-        );
+        [$admin] = $this->adminAndTenant();
 
         $this
             ->withSession(['admin_user_id' => $admin->id])

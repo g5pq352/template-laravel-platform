@@ -66,8 +66,18 @@
         }
 
         .cms-site-switcher form {
+            align-items: center;
+            display: flex;
+            gap: 10px;
             margin: 0;
             width: 100%;
+        }
+
+        .cms-site-switcher-label {
+            color: #777;
+            font-size: 13px;
+            margin: 0;
+            white-space: nowrap;
         }
 
         .cms-site-switcher select {

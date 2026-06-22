@@ -9,6 +9,7 @@ use App\Models\ContentType;
 use App\Models\HomeDisplay;
 use App\Models\Language;
 use App\Models\Site;
+use App\Models\SiteDomain;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
@@ -117,6 +118,69 @@ class PublicSiteApiTest extends TestCase
             ->withHeader('Origin', 'https://evil.example.test')
             ->getJson('/api/site?site=origin-locked-site&language=tw')
             ->assertForbidden();
+    }
+
+    public function test_public_api_returns_active_sites_for_current_tenant(): void
+    {
+        $site = Site::query()->create([
+            'tenant_id' => 99,
+            'name' => 'Main Tenant Site',
+            'slug' => 'main-tenant-site',
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [],
+        ]);
+
+        $secondSite = Site::query()->create([
+            'tenant_id' => 99,
+            'name' => 'Second Tenant Site',
+            'slug' => 'second-tenant-site',
+            'status' => 'active',
+            'default_locale' => 'en',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [],
+        ]);
+
+        Site::query()->create([
+            'tenant_id' => 99,
+            'name' => 'Inactive Tenant Site',
+            'slug' => 'inactive-tenant-site',
+            'status' => 'inactive',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [],
+        ]);
+
+        Site::query()->create([
+            'tenant_id' => 100,
+            'name' => 'Other Tenant Site',
+            'slug' => 'other-tenant-site',
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [],
+        ]);
+
+        SiteDomain::query()->create([
+            'site_id' => $secondSite->id,
+            'domain' => 'second.example.test',
+            'is_primary' => true,
+            'force_https' => true,
+        ]);
+
+        $this->getJson('/api/sites?site=main-tenant-site')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.slug', 'main-tenant-site')
+            ->assertJsonPath('data.0.is_current', true)
+            ->assertJsonPath('data.1.slug', 'second-tenant-site')
+            ->assertJsonPath('data.1.primary_domain', 'second.example.test')
+            ->assertJsonPath('data.1.domains.0.force_https', true);
     }
 
     public function test_public_api_returns_home_display_items_from_configured_module(): void
