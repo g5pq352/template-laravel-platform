@@ -13,6 +13,7 @@
     $isSettings = request()->routeIs('admin.settings.*') || (request()->routeIs('admin.info.*') && request()->route('module') === 'keywordsInfo');
     $isMediaLibrary = request()->routeIs('admin.media-library.*');
     $isMenus = request()->routeIs('admin.menus.*');
+    $isSites = request()->routeIs('admin.sites.*');
 
     $menuLocation = request()->query('location', 'backend');
     $backendMenus = collect();
@@ -206,6 +207,13 @@
                                     <a class="nav-link" href="{{ route('admin.info.edit', 'keywordsInfo') }}">
                                         <i class="bx bx-cog" aria-hidden="true"></i>
                                         <span>全站設定</span>
+                                    </a>
+                                </li>
+
+                                <li @class(['nav-active' => $isSites])>
+                                    <a class="nav-link" href="{{ route('admin.sites.index') }}">
+                                        <i class="bx bx-buildings" aria-hidden="true"></i>
+                                        <span>多站管理</span>
                                     </a>
                                 </li>
 

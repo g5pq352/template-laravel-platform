@@ -27,6 +27,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
         Route::post('/sites/switch', [SiteController::class, 'switch'])->name('sites.switch');
+        Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
+        Route::get('/sites/create', [SiteController::class, 'create'])->name('sites.create');
+        Route::post('/sites', [SiteController::class, 'store'])->name('sites.store');
+        Route::get('/sites/{site}/edit', [SiteController::class, 'edit'])->name('sites.edit');
+        Route::put('/sites/{site}', [SiteController::class, 'update'])->name('sites.update');
+        Route::delete('/sites/{site}', [SiteController::class, 'destroy'])->name('sites.destroy');
         Route::get('/settings', fn () => redirect()->route('admin.info.edit', 'keywordsInfo'))->name('settings.index');
         Route::get('/media-library', [MediaLibraryController::class, 'index'])->name('media-library.index');
         Route::post('/media-library/folders', [MediaLibraryController::class, 'storeFolder'])->name('media-library.folders.store');
