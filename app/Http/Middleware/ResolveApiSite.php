@@ -59,6 +59,10 @@ class ResolveApiSite
 
     private function originIsAllowed(Request $request, Site $site): bool
     {
+        if ($this->siteApiKeyIsAllowed($request, $site)) {
+            return true;
+        }
+
         $allowedOrigins = $this->allowedOrigins($site);
 
         if ($allowedOrigins === []) {
@@ -68,6 +72,21 @@ class ResolveApiSite
         $requestOrigin = $this->requestOrigin($request);
 
         return $requestOrigin !== null && in_array($requestOrigin, $allowedOrigins, true);
+    }
+
+    private function siteApiKeyIsAllowed(Request $request, Site $site): bool
+    {
+        $expected = trim((string) ($site->settings['api_access_token'] ?? ''));
+        if ($expected === '') {
+            return false;
+        }
+
+        $provided = trim((string) $request->headers->get('X-Site-Api-Key', ''));
+        if ($provided === '') {
+            return false;
+        }
+
+        return hash_equals($expected, $provided);
     }
 
     private function allowedOrigins(Site $site): array
@@ -137,7 +156,7 @@ class ResolveApiSite
             $response->headers->set('Access-Control-Allow-Origin', $requestOrigin);
             $response->headers->set('Vary', 'Origin');
             $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, X-Site, X-Requested-With, Authorization');
+            $response->headers->set('Access-Control-Allow-Headers', 'Content-Type, X-Site, X-Site-Api-Key, X-Requested-With, Authorization');
         }
 
         return $response;

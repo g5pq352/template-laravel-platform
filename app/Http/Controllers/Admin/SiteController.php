@@ -151,6 +151,7 @@ class SiteController extends Controller
                     'force_https' => $domain->force_https,
                 ])->all(),
                 'api_allowed_origins' => implode("\n", Arr::wrap($site->settings['api_allowed_origins'] ?? [])),
+                'api_access_token' => $site->settings['api_access_token'] ?? '',
                 'deployment' => $deployment,
                 'cms_set_path' => $site->settings['cms_set_path'] ?? '',
                 'repository_path' => $site->settings['repository_path'] ?? '',
@@ -289,6 +290,7 @@ class SiteController extends Controller
             'timezone' => ['required', 'string', 'max:80'],
             'currency_code' => ['required', 'string', 'size:3'],
             'api_allowed_origins' => ['nullable', 'string'],
+            'api_access_token' => ['nullable', 'string', 'max:255'],
             'cms_set_path' => ['nullable', 'string', 'max:500'],
             'repository_path' => ['nullable', 'string', 'max:500'],
             'db_connection' => ['nullable', 'string', 'max:80'],
@@ -468,6 +470,8 @@ class SiteController extends Controller
             ->all();
         $settings = Arr::wrap($site?->settings ?? []);
         $settings['api_allowed_origins'] = $origins;
+        $settings['api_access_token'] = $this->nullableSetting($data['api_access_token'] ?? null)
+            ?? ($settings['api_access_token'] ?? Str::random(48));
         $settings['cms_set_path'] = $this->nullableSetting($data['cms_set_path'] ?? null);
         $settings['repository_path'] = $this->nullableSetting($data['repository_path'] ?? null);
 

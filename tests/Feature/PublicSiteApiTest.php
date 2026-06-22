@@ -10,6 +10,8 @@ use App\Models\HomeDisplay;
 use App\Models\Language;
 use App\Models\Site;
 use App\Models\SiteDomain;
+use App\Models\Taxonomy;
+use App\Models\TaxonomyTerm;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
@@ -90,7 +92,10 @@ class PublicSiteApiTest extends TestCase
             'default_locale' => 'zh-Hant-TW',
             'timezone' => 'Asia/Taipei',
             'currency_code' => 'TWD',
-            'settings' => ['api_allowed_origins' => ['https://www.example.test']],
+            'settings' => [
+                'api_allowed_origins' => ['https://www.example.test'],
+                'api_access_token' => 'server-token',
+            ],
         ]);
 
         Language::query()->create([
@@ -116,6 +121,17 @@ class PublicSiteApiTest extends TestCase
 
         $this
             ->withHeader('Origin', 'https://evil.example.test')
+            ->getJson('/api/site?site=origin-locked-site&language=tw')
+            ->assertForbidden();
+
+        $this
+            ->withHeader('X-Site-Api-Key', 'server-token')
+            ->getJson('/api/site?site=origin-locked-site&language=tw')
+            ->assertOk()
+            ->assertJsonPath('data.slug', 'origin-locked-site');
+
+        $this
+            ->withHeader('X-Site-Api-Key', 'wrong-token')
             ->getJson('/api/site?site=origin-locked-site&language=tw')
             ->assertForbidden();
     }
@@ -285,6 +301,154 @@ class PublicSiteApiTest extends TestCase
             ->assertJsonPath('data.0.media_by_role.newsCover.0.alt', 'Cover alt');
     }
 
+    public function test_public_news_api_supports_categories_pagination_detail_and_language_view_counts(): void
+    {
+        $site = Site::query()->create([
+            'tenant_id' => 1,
+            'name' => 'News API Site',
+            'slug' => 'news-api-site',
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [],
+        ]);
+
+        Language::query()->create([
+            'site_id' => $site->id,
+            'name' => '繁體中文',
+            'name_en' => 'Traditional Chinese',
+            'slug' => 'tw',
+            'locale' => 'zh-Hant-TW',
+            'is_default' => true,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        Language::query()->create([
+            'site_id' => $site->id,
+            'name' => 'English',
+            'name_en' => 'English',
+            'slug' => 'en',
+            'locale' => 'en',
+            'is_default' => false,
+            'is_active' => true,
+            'sort_order' => 2,
+        ]);
+
+        $type = ContentType::query()->create([
+            'site_id' => $site->id,
+            'code' => 'news',
+            'name' => 'News',
+            'config' => [],
+            'is_active' => true,
+        ]);
+
+        $taxonomy = Taxonomy::query()->create([
+            'site_id' => $site->id,
+            'code' => 'newsCate',
+            'name' => 'News Category',
+            'is_hierarchical' => true,
+        ]);
+
+        $category = TaxonomyTerm::query()->create([
+            'taxonomy_id' => $taxonomy->id,
+            'locale' => 'zh-Hant-TW',
+            'name' => '活動公告',
+            'slug' => 'events',
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $first = Content::query()->create([
+            'site_id' => $site->id,
+            'content_type_id' => $type->id,
+            'status' => 'published',
+            'is_pinned' => true,
+            'sort_order' => 1,
+            'published_at' => now(),
+        ]);
+
+        $second = Content::query()->create([
+            'site_id' => $site->id,
+            'content_type_id' => $type->id,
+            'status' => 'published',
+            'is_pinned' => false,
+            'sort_order' => 2,
+            'published_at' => now()->subDay(),
+        ]);
+
+        ContentTranslation::query()->create([
+            'content_id' => $first->id,
+            'locale' => 'zh-Hant-TW',
+            'title' => '中文第一則',
+            'slug' => 'tw-first',
+            'summary' => '中文摘要',
+            'body' => '<p>中文內文</p>',
+            'view_count' => 0,
+        ]);
+
+        ContentTranslation::query()->create([
+            'content_id' => $first->id,
+            'locale' => 'en',
+            'title' => 'English First',
+            'slug' => 'en-first',
+            'summary' => 'English summary',
+            'body' => '<p>English body</p>',
+            'view_count' => 0,
+        ]);
+
+        ContentTranslation::query()->create([
+            'content_id' => $second->id,
+            'locale' => 'zh-Hant-TW',
+            'title' => '中文第二則',
+            'slug' => 'tw-second',
+            'summary' => '第二則摘要',
+            'body' => '<p>第二則內文</p>',
+            'view_count' => 0,
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('content_term')->insert([
+            ['content_id' => $first->id, 'taxonomy_term_id' => $category->id, 'sort_order' => 1],
+            ['content_id' => $second->id, 'taxonomy_term_id' => $category->id, 'sort_order' => 1],
+        ]);
+
+        $this->getJson('/api/taxonomies/newsCate?site=news-api-site&language=tw')
+            ->assertOk()
+            ->assertJsonPath('data.terms.0.slug', 'events');
+
+        $this->getJson('/api/contents/news?site=news-api-site&language=tw&term=events&per_page=1')
+            ->assertOk()
+            ->assertJsonPath('data.0.slug', 'tw-first')
+            ->assertJsonPath('current_page', 1)
+            ->assertJsonPath('per_page', 1)
+            ->assertJsonPath('total', 2);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
+            ->withHeader('User-Agent', 'feature-test')
+            ->getJson('/api/contents/news/tw-first?site=news-api-site&language=tw')
+            ->assertOk()
+            ->assertJsonPath('data.slug', 'tw-first')
+            ->assertJsonPath('data.body', '<p>中文內文</p>')
+            ->assertJsonPath('data.view_count', 1);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
+            ->withHeader('User-Agent', 'feature-test')
+            ->getJson('/api/contents/news/tw-first?site=news-api-site&language=tw')
+            ->assertOk()
+            ->assertJsonPath('data.view_count', 1);
+
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
+            ->withHeader('User-Agent', 'feature-test')
+            ->getJson('/api/contents/news/en-first?site=news-api-site&language=en')
+            ->assertOk()
+            ->assertJsonPath('data.slug', 'en-first')
+            ->assertJsonPath('data.view_count', 1);
+
+        $this->assertSame(1, (int) ContentTranslation::query()->where('slug', 'tw-first')->value('view_count'));
+        $this->assertSame(1, (int) ContentTranslation::query()->where('slug', 'en-first')->value('view_count'));
+    }
+
     private function insertMediaFile(int $siteId, array $overrides = []): int
     {
         return (int) \Illuminate\Support\Facades\DB::table('media_files')->insertGetId(array_merge([
@@ -408,8 +572,13 @@ class PublicSiteApiTest extends TestCase
                 $table->string('seo_title')->nullable();
                 $table->text('seo_description')->nullable();
                 $table->json('custom_fields')->nullable();
+                $table->unsignedInteger('view_count')->default(0);
                 $table->softDeletes();
                 $table->timestamps();
+            });
+        } elseif (!Schema::hasColumn('content_translations', 'view_count')) {
+            Schema::table('content_translations', function (Blueprint $table): void {
+                $table->unsignedInteger('view_count')->default(0);
             });
         }
 

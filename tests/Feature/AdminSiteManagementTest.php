@@ -48,6 +48,7 @@ class AdminSiteManagementTest extends TestCase
                 'timezone' => 'Asia/Taipei',
                 'currency_code' => 'TWD',
                 'api_allowed_origins' => "https://frontend.example.test\nhttps://www.example.test",
+                'api_access_token' => 'front-server-token',
                 'cms_set_path' => $setPath,
                 'repository_path' => 'D:\wamp64\www\test-site',
                 'db_connection' => 'test_site',
@@ -80,6 +81,7 @@ class AdminSiteManagementTest extends TestCase
         $response->assertRedirect($site ? route('admin.sites.edit', $site) : route('admin.sites.index'));
         $this->assertNotNull($site);
         $this->assertSame(['https://frontend.example.test', 'https://www.example.test'], $site->settings['api_allowed_origins']);
+        $this->assertSame('front-server-token', $site->settings['api_access_token']);
         $this->assertSame($setPath, $site->settings['cms_set_path']);
         $this->assertSame('D:\wamp64\www\test-site', $site->settings['repository_path']);
         $this->assertSame([

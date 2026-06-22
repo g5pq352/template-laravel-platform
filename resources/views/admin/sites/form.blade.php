@@ -186,6 +186,14 @@
                                     <div class="text-danger text-2 mt-2">一行一個來源，保留給 API / CORS 白名單使用。</div>
                                 </div>
                             </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">站台 API Key</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="api_access_token" class="form-control" value="{{ old('api_access_token', $values['api_access_token'] ?? '') }}" autocomplete="off">
+                                    <div class="text-danger text-2 mt-2">給 Next.js 伺服器端讀 API 使用；瀏覽器直接開 API 不會帶這個 Key。</div>
+                                </div>
+                            </div>
                         </div>
 
                         <div id="site-modules" class="tab-pane fade" role="tabpanel" aria-labelledby="site-modules-tab">
