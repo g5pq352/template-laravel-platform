@@ -227,7 +227,38 @@ class AdminSiteManagementTest extends TestCase
         $this->assertSame($targetPath, $site->settings['repository_path']);
         $this->assertSame($targetPath . DIRECTORY_SEPARATOR . 'cms' . DIRECTORY_SEPARATOR . 'set', $site->settings['cms_set_path']);
         $this->assertSame($targetPath, $site->settings['deployment']['frontend_project_path']);
+        $this->assertSame('success', $site->settings['deployment']['frontend_status']);
         $this->assertNotEmpty($site->settings['deployment']['frontend_generated_at']);
+        $this->assertSame('skipped', $site->settings['deployment']['database_status']);
+    }
+
+    public function test_missing_frontend_template_is_recorded_on_site_creation(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'missing-template-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $missingTemplatePath = storage_path('framework/testing/missing-template-' . $slug);
+
+        File::deleteDirectory($missingTemplatePath);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->post(route('admin.sites.store'), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Missing Template Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'frontend_template_path' => $missingTemplatePath,
+                'enabled_modules' => ['news'],
+            ]);
+
+        $site = Site::query()->where('slug', $slug)->firstOrFail();
+
+        $this->assertSame('failed', $site->settings['deployment']['frontend_status'] ?? null);
+        $this->assertSame('找不到 Next 範本目錄。', $site->settings['deployment']['frontend_message'] ?? null);
+        $this->assertNotEmpty($site->settings['deployment']['frontend_failed_at'] ?? null);
     }
 
     public function test_updating_site_only_syncs_frontend_env_file(): void

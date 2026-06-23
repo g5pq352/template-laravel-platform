@@ -356,8 +356,12 @@
                                         @php
                                             $deployment = $values['deployment'] ?? [];
                                             $databaseCreatedAt = $deployment['database_created_at'] ?? null;
+                                            $databaseStatus = $deployment['database_status'] ?? null;
+                                            $databaseMessage = $deployment['database_message'] ?? null;
                                             $databaseImportedAt = $deployment['database_template_imported_at'] ?? null;
                                             $frontendGeneratedAt = $deployment['frontend_generated_at'] ?? null;
+                                            $frontendStatus = $deployment['frontend_status'] ?? null;
+                                            $frontendMessage = $deployment['frontend_message'] ?? null;
                                             $frontendProjectPath = $deployment['frontend_project_path'] ?? null;
                                             $gitlabProjectPath = $deployment['gitlab_project_path'] ?? null;
                                             $gitlabProjectCreatedAt = $deployment['gitlab_project_created_at'] ?? null;
@@ -368,6 +372,12 @@
                                                 @if($databaseCreatedAt)
                                                     <span class="badge badge-success">已建立</span>
                                                     <span class="text-muted text-2 ms-2">{{ $deployment['database_name'] ?? '' }} {{ $databaseCreatedAt }}</span>
+                                                @elseif($databaseStatus === 'failed')
+                                                    <span class="badge badge-danger">失敗</span>
+                                                    <span class="text-muted text-2 ms-2">{{ $databaseMessage }}</span>
+                                                @elseif($databaseStatus === 'skipped')
+                                                    <span class="text-muted">略過</span>
+                                                    <span class="text-muted text-2 ms-2">{{ $databaseMessage }}</span>
                                                 @else
                                                     <span class="text-muted">尚未建立</span>
                                                 @endif
@@ -380,6 +390,9 @@
                                                 @if($frontendGeneratedAt)
                                                     <span class="badge badge-success">已產生</span>
                                                     <span class="text-muted text-2 ms-2">{{ $frontendGeneratedAt }}</span>
+                                                @elseif($frontendStatus === 'failed')
+                                                    <span class="badge badge-danger">失敗</span>
+                                                    <span class="text-muted text-2 ms-2">{{ $frontendMessage }}</span>
                                                 @else
                                                     <span class="text-muted">尚未產生</span>
                                                 @endif

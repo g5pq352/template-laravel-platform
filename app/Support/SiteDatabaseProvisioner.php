@@ -15,16 +15,25 @@ class SiteDatabaseProvisioner
     public function provision(Site $site): array
     {
         if (app()->runningUnitTests()) {
-            return ['ok' => true, 'created' => false, 'imported' => false, 'message' => '測試環境略過資料庫實體建立。'];
+            $message = '測試環境略過資料庫實體建立。';
+            $this->rememberResult($site, trim((string) ($site->settings['database']['database'] ?? $site->slug)), false, 'skipped', $message);
+
+            return ['ok' => true, 'created' => false, 'imported' => false, 'message' => $message];
         }
 
         if (!config('cms.platform.site_database_auto_provision', true)) {
-            return ['ok' => true, 'created' => false, 'imported' => false, 'message' => '資料庫自動建立未啟用。'];
+            $message = '資料庫自動建立未啟用。';
+            $this->rememberResult($site, trim((string) ($site->settings['database']['database'] ?? $site->slug)), false, 'skipped', $message);
+
+            return ['ok' => true, 'created' => false, 'imported' => false, 'message' => $message];
         }
 
         $database = trim((string) ($site->settings['database']['database'] ?? $site->slug));
         if ($database === '') {
-            return ['ok' => false, 'created' => false, 'imported' => false, 'message' => '站台資料庫名稱為空。'];
+            $message = '站台資料庫名稱為空。';
+            $this->rememberResult($site, '', false, 'failed', $message);
+
+            return ['ok' => false, 'created' => false, 'imported' => false, 'message' => $message];
         }
 
         DB::statement(sprintf(
@@ -33,7 +42,7 @@ class SiteDatabaseProvisioner
         ));
 
         $imported = $this->importTemplateIfConfigured($database);
-        $this->rememberResult($site, $database, $imported);
+        $this->rememberResult($site, $database, $imported, 'success', $imported ? '站台資料庫已建立並匯入範本。' : '站台資料庫已建立。');
 
         return [
             'ok' => true,
@@ -76,12 +85,19 @@ class SiteDatabaseProvisioner
             ->all();
     }
 
-    private function rememberResult(Site $site, string $database, bool $imported): void
+    private function rememberResult(Site $site, string $database, bool $imported, string $status, string $message): void
     {
         $settings = Arr::wrap($site->settings ?? []);
         $deployment = Arr::wrap($settings['deployment'] ?? []);
         $deployment['database_name'] = $database;
-        $deployment['database_created_at'] = $deployment['database_created_at'] ?? now()->format('Y-m-d H:i:s');
+        $deployment['database_status'] = $status;
+        $deployment['database_message'] = $message;
+
+        if ($status === 'success') {
+            $deployment['database_created_at'] = $deployment['database_created_at'] ?? now()->format('Y-m-d H:i:s');
+        } elseif ($status === 'failed') {
+            $deployment['database_failed_at'] = now()->format('Y-m-d H:i:s');
+        }
 
         if ($imported) {
             $deployment['database_template_imported_at'] = now()->format('Y-m-d H:i:s');

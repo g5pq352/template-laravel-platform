@@ -19,7 +19,10 @@ class SiteFrontendProjectManager
 
         $source = $this->templatePath($site);
         if (!$source || !is_dir($source)) {
-            return ['created' => false, 'path' => null, 'message' => '找不到 Next 範本目錄。'];
+            $message = '找不到 Next 範本目錄。';
+            $this->rememberFailure($site, $message);
+
+            return ['created' => false, 'path' => null, 'message' => $message];
         }
 
         $target = $this->targetPath($site, $source);
@@ -142,8 +145,22 @@ class SiteFrontendProjectManager
         $settings['frontend_template_path'] = $source;
 
         $deployment = Arr::wrap($settings['deployment'] ?? []);
+        $deployment['frontend_status'] = 'success';
+        $deployment['frontend_message'] = '前端專案已產生。';
         $deployment['frontend_project_path'] = $target;
         $deployment['frontend_generated_at'] = now()->format('Y-m-d H:i:s');
+        $settings['deployment'] = $deployment;
+
+        $site->forceFill(['settings' => $settings])->save();
+    }
+
+    private function rememberFailure(Site $site, string $message): void
+    {
+        $settings = Arr::wrap($site->settings ?? []);
+        $deployment = Arr::wrap($settings['deployment'] ?? []);
+        $deployment['frontend_status'] = 'failed';
+        $deployment['frontend_message'] = $message;
+        $deployment['frontend_failed_at'] = now()->format('Y-m-d H:i:s');
         $settings['deployment'] = $deployment;
 
         $site->forceFill(['settings' => $settings])->save();
