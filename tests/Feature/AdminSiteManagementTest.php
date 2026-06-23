@@ -247,10 +247,8 @@ class AdminSiteManagementTest extends TestCase
             ]);
 
         $site = Site::query()->where('slug', $slug)->firstOrFail();
-        $expected = str_replace('-', '_', $slug);
-
-        $this->assertSame($expected, $site->settings['database']['connection']);
-        $this->assertSame($expected, $site->settings['database']['database']);
+        $this->assertSame($slug, $site->settings['database']['connection']);
+        $this->assertSame($slug, $site->settings['database']['database']);
     }
 
     public function test_site_with_managed_data_cannot_be_deleted(): void

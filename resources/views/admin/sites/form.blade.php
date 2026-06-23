@@ -330,7 +330,7 @@
                                 <label class="col-lg-3 control-label text-lg-end mb-0">資料庫連線名稱</label>
                                 <div class="col-lg-7">
                                     <input type="text" name="db_connection" class="form-control" value="{{ old('db_connection', $values['db_connection'] ?? '') }}" placeholder="site_a">
-                                    <div class="text-danger text-2 mt-2">留空會用站台代號自動產生，例如 site-a 會變成 site_a。</div>
+                                    <div class="text-danger text-2 mt-2">留空會直接使用站台代號，例如 site-a。</div>
                                 </div>
                             </div>
 
@@ -348,7 +348,7 @@
                                 <label class="col-lg-3 control-label text-lg-end mb-0">資料庫名稱</label>
                                 <div class="col-lg-7">
                                     <input type="text" name="db_database" class="form-control" value="{{ old('db_database', $values['db_database'] ?? '') }}">
-                                    <div class="text-danger text-2 mt-2">留空會用站台代號自動產生，例如 site-a 會變成 site_a。</div>
+                                    <div class="text-danger text-2 mt-2">留空會直接使用站台代號，例如 site-a。</div>
                                 </div>
                             </div>
 
@@ -445,8 +445,7 @@
         function databaseNameFromSlug(slug) {
             return String(slug || '')
                 .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '_')
-                .replace(/^_+|_+$/g, '') || 'site';
+                .trim() || 'site';
         }
 
         function syncSlugDefaults() {

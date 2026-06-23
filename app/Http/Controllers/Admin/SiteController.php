@@ -560,11 +560,7 @@ class SiteController extends Controller
 
     private function databaseNameFromSlug(string $slug): string
     {
-        $name = Str::of($slug)
-            ->lower()
-            ->replaceMatches('/[^a-z0-9]+/', '_')
-            ->trim('_')
-            ->toString();
+        $name = trim(Str::lower($slug));
 
         return $name !== '' ? $name : 'site';
     }
