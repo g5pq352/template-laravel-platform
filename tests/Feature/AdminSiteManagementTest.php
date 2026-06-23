@@ -700,11 +700,14 @@ PHP);
         config([
             'cms.platform.gitlab.url' => 'https://gitlab.example.test',
             'cms.platform.gitlab.token' => 'secret-token',
-            'cms.platform.gitlab.namespace_id' => '100',
             'cms.platform.gitlab.namespace_path' => 'goods-design',
         ]);
 
         Http::fake([
+            'gitlab.example.test/api/v4/namespaces/goods-design' => Http::response([
+                'id' => 100,
+                'path' => 'goods-design',
+            ], 200),
             'gitlab.example.test/api/v4/projects' => Http::response([
                 'id' => 9001,
                 'path' => $slug,
@@ -740,7 +743,8 @@ PHP);
 
         Http::assertSent(fn ($request): bool => $request->url() === 'https://gitlab.example.test/api/v4/projects'
             && $request['path'] === $slug
-            && $request['namespace_id'] === '100');
+            && $request['namespace_id'] === 100
+            && $request['visibility'] === 'private');
     }
 
     public function test_site_edit_page_shows_admin_access_and_git_push_button(): void

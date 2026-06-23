@@ -30,8 +30,8 @@ class SiteGitLabRepositoryManager
             'visibility' => (string) config('cms.platform.gitlab.visibility', 'private'),
         ];
 
-        $namespaceId = trim((string) config('cms.platform.gitlab.namespace_id', ''));
-        if ($namespaceId !== '') {
+        $namespaceId = $this->resolveNamespaceId($baseUrl, $token);
+        if ($namespaceId) {
             $payload['namespace_id'] = $namespaceId;
         }
 
@@ -92,6 +92,26 @@ class SiteGitLabRepositoryManager
         }
 
         return $this->projectResult($site, $project, '已找到既有 GitLab 專案。');
+    }
+
+    private function resolveNamespaceId(string $baseUrl, string $token): ?int
+    {
+        $namespacePath = trim((string) config('cms.platform.gitlab.namespace_path', ''));
+        if ($namespacePath === '') {
+            return null;
+        }
+
+        $response = Http::withHeaders(['PRIVATE-TOKEN' => $token])
+            ->acceptJson()
+            ->get($baseUrl . '/api/v4/namespaces/' . rawurlencode(trim($namespacePath, '/')));
+
+        if (!$response->successful()) {
+            return null;
+        }
+
+        $id = $response->json('id');
+
+        return is_numeric($id) ? (int) $id : null;
     }
 
     /**
