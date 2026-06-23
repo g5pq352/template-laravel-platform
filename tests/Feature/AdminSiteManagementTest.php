@@ -98,15 +98,13 @@ class AdminSiteManagementTest extends TestCase
             ['name' => 'Blog', 'slug' => 'blog', 'type' => 'single'],
             ['name' => 'Events', 'slug' => 'events', 'type' => 'multi'],
         ], $site->settings['custom_modules']);
-        $this->assertSame([
-            'production_domain' => $domain,
-            'frontend_url' => 'https://' . $domain,
-            'admin_url' => 'https://' . $domain . '/cms',
-            'git_repository_url' => 'https://github.com/example/test-site.git',
-            'initialized_at' => '2026-06-22 10:00:00',
-            'domain_bound_at' => '2026-06-22 11:00:00',
-            'notes' => 'Custom site notes.',
-        ], $site->settings['deployment']);
+        $this->assertSame($domain, $site->settings['deployment']['production_domain']);
+        $this->assertSame('https://' . $domain, $site->settings['deployment']['frontend_url']);
+        $this->assertSame('https://' . $domain . '/cms', $site->settings['deployment']['admin_url']);
+        $this->assertSame('https://github.com/example/test-site.git', $site->settings['deployment']['git_repository_url']);
+        $this->assertSame('2026-06-22 10:00:00', $site->settings['deployment']['initialized_at']);
+        $this->assertSame('2026-06-22 11:00:00', $site->settings['deployment']['domain_bound_at']);
+        $this->assertSame('Custom site notes.', $site->settings['deployment']['notes']);
         $adminAccess = app(SiteDeploymentManager::class)->adminAccessForDisplay($site);
         $this->assertSame('https://' . $domain . '/cms', $adminAccess['url']);
         $this->assertSame('admin', $adminAccess['username']);
@@ -185,6 +183,7 @@ class AdminSiteManagementTest extends TestCase
         $slug = 'frontend-project-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
         $templatePath = storage_path('framework/testing/next-template-' . $slug);
         $targetPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, storage_path('framework/testing/' . $slug));
+        config(['cms.platform.site_workspace_root' => storage_path('framework/testing')]);
 
         File::deleteDirectory($templatePath);
         File::deleteDirectory($targetPath);
@@ -225,6 +224,7 @@ class AdminSiteManagementTest extends TestCase
         $this->assertStringContainsString('API_ACCESS_TOKEN=site-front-token', $env);
         $this->assertStringContainsString('NEXT_PUBLIC_SITE_URL=', $env);
         $this->assertSame($targetPath, $site->settings['repository_path']);
+        $this->assertSame($targetPath . DIRECTORY_SEPARATOR . 'cms' . DIRECTORY_SEPARATOR . 'set', $site->settings['cms_set_path']);
         $this->assertSame($targetPath, $site->settings['deployment']['frontend_project_path']);
         $this->assertNotEmpty($site->settings['deployment']['frontend_generated_at']);
     }
@@ -235,6 +235,7 @@ class AdminSiteManagementTest extends TestCase
         $slug = 'frontend-env-sync-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
         $templatePath = storage_path('framework/testing/next-template-' . $slug);
         $targetPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, storage_path('framework/testing/' . $slug));
+        config(['cms.platform.site_workspace_root' => storage_path('framework/testing')]);
 
         File::deleteDirectory($templatePath);
         File::deleteDirectory($targetPath);
@@ -286,6 +287,7 @@ class AdminSiteManagementTest extends TestCase
         $this->assertStringContainsString('API_SITE=' . $slug, $env);
         $this->assertStringContainsString('API_ACCESS_TOKEN=new-front-token', $env);
         $this->assertStringContainsString('NEXT_PUBLIC_SITE_URL=https://frontend-sync.example.test', $env);
+        $this->assertSame(['https://frontend-sync.example.test'], $site->settings['api_allowed_origins']);
         $this->assertNotEmpty($site->settings['deployment']['frontend_env_synced_at']);
     }
 
@@ -673,6 +675,8 @@ PHP);
         $site->refresh();
         $this->assertSame('success', $site->settings['deployment']['git_push_status'] ?? null);
         $this->assertNotEmpty($site->settings['deployment']['git_pushed_at'] ?? null);
+        $remoteList = trim((new Process(['git', 'remote'], $repoPath))->mustRun()->getOutput());
+        $this->assertSame($slug, $remoteList);
     }
 
     public function test_site_edit_page_shows_admin_access_and_git_push_button(): void
@@ -702,6 +706,8 @@ PHP);
             ->assertOk()
             ->assertSee('Git Push')
             ->assertSee('後台登入資訊')
+            ->assertSee('上線資訊')
+            ->assertDontSee('API 設定')
             ->assertSee('https://access.example.test/cms')
             ->assertSee('admin');
     }

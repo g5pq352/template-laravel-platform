@@ -73,6 +73,7 @@ class SiteController extends Controller
                 'currency_code' => 'TWD',
                 'domains' => [],
                 'api_allowed_origins' => '',
+                'api_access_token' => '',
                 'cms_set_path' => '',
                 'frontend_template_path' => '',
                 'repository_path' => '',
@@ -476,19 +477,19 @@ class SiteController extends Controller
 
     private function sitePayload(array $data, ?Site $site = null): array
     {
-        $origins = collect(preg_split('/\R/', (string) ($data['api_allowed_origins'] ?? '')) ?: [])
-            ->map(fn (string $origin) => trim($origin))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $origins = array_key_exists('api_allowed_origins', $data)
+            ? $this->originsFromTextarea((string) ($data['api_allowed_origins'] ?? ''))
+            : $this->originsFromSiteData($data);
         $settings = Arr::wrap($site?->settings ?? []);
         $settings['api_allowed_origins'] = $origins;
         $settings['api_access_token'] = $this->nullableSetting($data['api_access_token'] ?? null)
             ?? ($settings['api_access_token'] ?? Str::random(48));
-        $settings['cms_set_path'] = $this->nullableSetting($data['cms_set_path'] ?? null);
-        $settings['frontend_template_path'] = $this->nullableSetting($data['frontend_template_path'] ?? null);
-        $settings['repository_path'] = $this->nullableSetting($data['repository_path'] ?? null);
+        $settings['cms_set_path'] = $this->nullableSetting($data['cms_set_path'] ?? null)
+            ?? ($settings['cms_set_path'] ?? $this->defaultCmsSetPath((string) $data['slug']));
+        $settings['frontend_template_path'] = $this->nullableSetting($data['frontend_template_path'] ?? null)
+            ?? ($settings['frontend_template_path'] ?? $this->defaultFrontendTemplatePath());
+        $settings['repository_path'] = $this->nullableSetting($data['repository_path'] ?? null)
+            ?? ($settings['repository_path'] ?? $this->defaultRepositoryPath((string) $data['slug']));
 
         $databaseName = $this->databaseNameFromSlug((string) $data['slug']);
         $database = Arr::wrap($settings['database'] ?? []);
@@ -533,7 +534,8 @@ class SiteController extends Controller
             'production_domain' => $this->nullableSetting($data['production_domain'] ?? null),
             'frontend_url' => $this->nullableSetting($data['frontend_url'] ?? null),
             'admin_url' => $this->nullableSetting($data['admin_url'] ?? null),
-            'git_repository_url' => $this->nullableSetting($data['git_repository_url'] ?? null),
+            'git_repository_url' => $this->nullableSetting($data['git_repository_url'] ?? null)
+                ?? ($settings['deployment']['git_repository_url'] ?? $this->defaultGitRepositoryUrl((string) $data['slug'])),
             'initialized_at' => $this->nullableSetting($data['initialized_at'] ?? null),
             'domain_bound_at' => $this->nullableSetting($data['domain_bound_at'] ?? null),
             'notes' => $this->nullableSetting($data['deployment_notes'] ?? null),
@@ -571,6 +573,86 @@ class SiteController extends Controller
         $name = trim(Str::lower($slug));
 
         return $name !== '' ? $name : 'site';
+    }
+
+    private function defaultCmsSetPath(string $slug): string
+    {
+        return $this->defaultRepositoryPath($slug) . DIRECTORY_SEPARATOR . 'cms' . DIRECTORY_SEPARATOR . 'set';
+    }
+
+    private function defaultRepositoryPath(string $slug): string
+    {
+        $root = trim((string) config('cms.platform.site_workspace_root', dirname(base_path())));
+
+        return str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $root) . DIRECTORY_SEPARATOR . $slug;
+    }
+
+    private function defaultFrontendTemplatePath(): string
+    {
+        return str_replace(['/', '\\'], DIRECTORY_SEPARATOR, (string) config('cms.platform.frontend_template_path'));
+    }
+
+    private function defaultGitRepositoryUrl(string $slug): ?string
+    {
+        $baseUrl = trim((string) config('cms.platform.git_repository_base_url', ''));
+        if ($baseUrl === '') {
+            return null;
+        }
+
+        return rtrim($baseUrl, '/') . '/' . $slug . '.git';
+    }
+
+    private function originsFromTextarea(string $value): array
+    {
+        return collect(preg_split('/\R/', $value) ?: [])
+            ->map(fn (string $origin) => trim($origin))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function originsFromSiteData(array $data): array
+    {
+        $origins = collect([
+            $data['frontend_url'] ?? null,
+            $data['production_domain'] ?? null,
+        ]);
+
+        foreach (Arr::wrap($data['domains'] ?? []) as $domain) {
+            $origins->push($domain['domain'] ?? null);
+        }
+
+        return $origins
+            ->map(fn (mixed $origin): ?string => $this->normalizeOriginForSettings((string) $origin))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeOriginForSettings(string $origin): ?string
+    {
+        $origin = trim($origin);
+        if ($origin === '') {
+            return null;
+        }
+
+        if (!preg_match('#^https?://#i', $origin)) {
+            $origin = 'https://' . $origin;
+        }
+
+        $parts = parse_url($origin);
+        if (empty($parts['scheme']) || empty($parts['host'])) {
+            return null;
+        }
+
+        $normalized = strtolower($parts['scheme']) . '://' . strtolower($parts['host']);
+        if (!empty($parts['port'])) {
+            $normalized .= ':' . $parts['port'];
+        }
+
+        return $normalized;
     }
 
     private function normalizeStandardModuleKey(string $module): string

@@ -55,7 +55,7 @@ class SiteFrontendProjectManager
             return $this->normalizePath($configured);
         }
 
-        $default = dirname(base_path()) . DIRECTORY_SEPARATOR . 'template-next-platform';
+        $default = (string) config('cms.platform.frontend_template_path', dirname(base_path()) . DIRECTORY_SEPARATOR . 'template-next-platform');
 
         return $this->normalizePath($default);
     }
@@ -67,7 +67,9 @@ class SiteFrontendProjectManager
             return $this->normalizePath($configured);
         }
 
-        return dirname($source) . DIRECTORY_SEPARATOR . $site->slug;
+        $root = (string) config('cms.platform.site_workspace_root', dirname($source));
+
+        return $this->normalizePath($root) . DIRECTORY_SEPARATOR . $site->slug;
     }
 
     private function copyDirectory(string $source, string $target): void

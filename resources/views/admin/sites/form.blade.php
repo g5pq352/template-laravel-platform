@@ -88,14 +88,14 @@
                         <a class="nav-link" id="site-domains-tab" data-bs-toggle="pill" data-bs-target="#site-domains" role="tab" aria-controls="site-domains" aria-selected="false">
                             <i class="fas fa-globe me-2"></i> 網域設定
                         </a>
-                        <a class="nav-link" id="site-api-tab" data-bs-toggle="pill" data-bs-target="#site-api" role="tab" aria-controls="site-api" aria-selected="false">
-                            <i class="fas fa-code me-2"></i> API 設定
-                        </a>
                         <a class="nav-link" id="site-modules-tab" data-bs-toggle="pill" data-bs-target="#site-modules" role="tab" aria-controls="site-modules" aria-selected="false">
                             <i class="fas fa-puzzle-piece me-2"></i> 模組功能
                         </a>
                         <a class="nav-link" id="site-platform-tab" data-bs-toggle="pill" data-bs-target="#site-platform" role="tab" aria-controls="site-platform" aria-selected="false">
                             <i class="fas fa-folder-open me-2"></i> 站點架構
+                        </a>
+                        <a class="nav-link" id="site-deployment-tab" data-bs-toggle="pill" data-bs-target="#site-deployment" role="tab" aria-controls="site-deployment" aria-selected="false">
+                            <i class="fas fa-rocket me-2"></i> 上線資訊
                         </a>
                     </div>
                 </div>
@@ -178,24 +178,6 @@
                             </div>
                         </div>
 
-                        <div id="site-api" class="tab-pane fade" role="tabpanel" aria-labelledby="site-api-tab">
-                            <div class="form-group row align-items-start cms-form-row">
-                                <label class="col-lg-3 control-label text-lg-end mb-0">允許前端來源</label>
-                                <div class="col-lg-7">
-                                    <textarea name="api_allowed_origins" class="form-control" rows="6" placeholder="https://example.com">{{ old('api_allowed_origins', $values['api_allowed_origins'] ?? '') }}</textarea>
-                                    <div class="text-danger text-2 mt-2">一行一個來源，保留給 API / CORS 白名單使用。</div>
-                                </div>
-                            </div>
-
-                            <div class="form-group row align-items-center cms-form-row">
-                                <label class="col-lg-3 control-label text-lg-end mb-0">站台 API Key</label>
-                                <div class="col-lg-7">
-                                    <input type="text" name="api_access_token" class="form-control" value="{{ old('api_access_token', $values['api_access_token'] ?? '') }}" autocomplete="off">
-                                    <div class="text-danger text-2 mt-2">給 Next.js 伺服器端讀 API 使用；瀏覽器直接開 API 不會帶這個 Key。</div>
-                                </div>
-                            </div>
-                        </div>
-
                         <div id="site-modules" class="tab-pane fade" role="tabpanel" aria-labelledby="site-modules-tab">
                             <div class="form-group row align-items-start cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">標準模組</label>
@@ -266,65 +248,34 @@
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">Set 設定檔目錄</label>
                                 <div class="col-lg-8">
-                                    <input type="text" name="cms_set_path" class="form-control" value="{{ old('cms_set_path', $values['cms_set_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a\cms\set">
-                                    <div class="text-danger text-2 mt-2">可填絕對路徑或 Laravel 專案相對路徑；同名 *Set.php 會覆蓋共用設定。</div>
+                                    <input type="text" name="cms_set_path" class="form-control" value="{{ old('cms_set_path', $values['cms_set_path'] ?? '') }}" placeholder="自動產生：站台代號\cms\set" readonly>
+                                    <div class="text-danger text-2 mt-2">自動使用站台代號產生；後端客製只需要修改這個目錄內的 *Set.php。</div>
                                 </div>
                             </div>
 
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">Next 範本目錄</label>
                                 <div class="col-lg-8">
-                                    <input type="text" name="frontend_template_path" class="form-control" value="{{ old('frontend_template_path', $values['frontend_template_path'] ?? '') }}" placeholder="D:\wamp64\www\template-next-platform">
-                                    <div class="text-danger text-2 mt-2">新增站台時會複製這個 Next 專案；留空使用 template-next-platform。</div>
+                                    <input type="text" name="frontend_template_path" class="form-control" value="{{ old('frontend_template_path', $values['frontend_template_path'] ?? '') }}" placeholder="自動使用 template-next-platform" readonly>
+                                    <div class="text-danger text-2 mt-2">新增站台時自動複製 template-next-platform。</div>
                                 </div>
                             </div>
 
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">前端 Git 專案路徑</label>
                                 <div class="col-lg-8">
-                                    <input type="text" name="repository_path" class="form-control" value="{{ old('repository_path', $values['repository_path'] ?? '') }}" placeholder="D:\wamp64\www\site-a">
+                                    <input type="text" name="repository_path" class="form-control" value="{{ old('repository_path', $values['repository_path'] ?? '') }}" placeholder="自動產生：站台代號" readonly>
                                     <div class="text-danger text-2 mt-2">新增站台時會產生這個實體 Next 專案；留空自動建立為「站台代號」。</div>
                                 </div>
                             </div>
 
                             <div class="form-group row align-items-center cms-form-row">
-                                <label class="col-lg-3 control-label text-lg-end mb-0">GitLab Repo URL</label>
+                                <label class="col-lg-3 control-label text-lg-end mb-0">Git Remote 名稱</label>
                                 <div class="col-lg-8">
-                                    <input type="text" name="git_repository_url" class="form-control" value="{{ old('git_repository_url', $values['git_repository_url'] ?? '') }}" placeholder="https://gitlab.com/org/site.git">
-                                    <div class="text-danger text-2 mt-2">Git Push 按鈕會使用這個遠端網址；若是 private GitLab，請先在本機 Git 設好權限或使用可推送的 URL。</div>
+                                    <input type="text" class="form-control" value="{{ old('slug', $values['slug'] ?? '') }}" placeholder="自動使用站台代號" readonly>
+                                    <div class="text-danger text-2 mt-2">Git remote 名稱會直接使用站台代號。</div>
                                 </div>
                             </div>
-
-                            @if($isEdit)
-                                <div class="form-group row align-items-start cms-form-row">
-                                    <label class="col-lg-3 control-label text-lg-end mb-0">Git Push 狀態</label>
-                                    <div class="col-lg-8">
-                                        @php
-                                            $gitStatus = $values['deployment']['git_push_status'] ?? null;
-                                            $gitPushedAt = $values['deployment']['git_pushed_at'] ?? null;
-                                            $gitMessage = $values['deployment']['git_push_message'] ?? null;
-                                        @endphp
-                                        <div class="p-3 border rounded bg-light">
-                                            <div class="mb-2">
-                                                <span class="font-weight-semibold">狀態：</span>
-                                                @if($gitStatus === 'success')
-                                                    <span class="badge badge-success">成功</span>
-                                                @elseif($gitStatus === 'failed')
-                                                    <span class="badge badge-danger">失敗</span>
-                                                @else
-                                                    <span class="text-muted">尚未推送</span>
-                                                @endif
-                                            </div>
-                                            @if($gitPushedAt)
-                                                <div class="mb-2"><span class="font-weight-semibold">最後推送：</span>{{ $gitPushedAt }}</div>
-                                            @endif
-                                            @if($gitMessage)
-                                                <div class="text-muted text-2">{{ $gitMessage }}</div>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
 
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">資料庫連線名稱</label>
@@ -366,6 +317,9 @@
                                 </div>
                             </div>
 
+                        </div>
+
+                        <div id="site-deployment" class="tab-pane fade" role="tabpanel" aria-labelledby="site-deployment-tab">
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">正式域名</label>
                                 <div class="col-lg-7">
@@ -386,6 +340,45 @@
                                     <input type="text" name="admin_url" class="form-control" value="{{ old('admin_url', $values['admin_url'] ?? '') }}" placeholder="https://example.com.tw/cms">
                                 </div>
                             </div>
+
+                            <div class="form-group row align-items-center cms-form-row">
+                                <label class="col-lg-3 control-label text-lg-end mb-0">GitLab Repo URL</label>
+                                <div class="col-lg-7">
+                                    <input type="text" name="git_repository_url" class="form-control" value="{{ old('git_repository_url', $values['git_repository_url'] ?? '') }}" placeholder="可留空，由平台設定自動產生">
+                                    <div class="text-danger text-2 mt-2">若平台設定 CMS_GIT_REPOSITORY_BASE_URL，留空會自動使用「base/站台代號.git」。</div>
+                                </div>
+                            </div>
+
+                            @if($isEdit)
+                                <div class="form-group row align-items-start cms-form-row">
+                                    <label class="col-lg-3 control-label text-lg-end mb-0">Git Push 狀態</label>
+                                    <div class="col-lg-8">
+                                        @php
+                                            $gitStatus = $values['deployment']['git_push_status'] ?? null;
+                                            $gitPushedAt = $values['deployment']['git_pushed_at'] ?? null;
+                                            $gitMessage = $values['deployment']['git_push_message'] ?? null;
+                                        @endphp
+                                        <div class="p-3 border rounded bg-light">
+                                            <div class="mb-2">
+                                                <span class="font-weight-semibold">狀態：</span>
+                                                @if($gitStatus === 'success')
+                                                    <span class="badge badge-success">成功</span>
+                                                @elseif($gitStatus === 'failed')
+                                                    <span class="badge badge-danger">失敗</span>
+                                                @else
+                                                    <span class="text-muted">尚未推送</span>
+                                                @endif
+                                            </div>
+                                            @if($gitPushedAt)
+                                                <div class="mb-2"><span class="font-weight-semibold">最後推送：</span>{{ $gitPushedAt }}</div>
+                                            @endif
+                                            @if($gitMessage)
+                                                <div class="text-muted text-2">{{ $gitMessage }}</div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
 
                             <div class="form-group row align-items-center cms-form-row">
                                 <label class="col-lg-3 control-label text-lg-end mb-0">初始化完成時間</label>

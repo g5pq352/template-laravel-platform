@@ -115,16 +115,17 @@ class SiteDeploymentManager
             return ['ok' => false, 'message' => '尚未設定 GitLab Repository URL。', 'output' => ''];
         }
 
+        $remoteName = $site->slug;
         $commands = [
             ['git', 'init'],
             ['git', 'config', 'user.email', 'auto@cms-automation.local'],
             ['git', 'config', 'user.name', 'CMS Automation'],
-            ['git', 'remote', 'remove', 'origin'],
-            ['git', 'remote', 'add', 'origin', $remoteUrl],
+            ['git', 'remote', 'remove', $remoteName],
+            ['git', 'remote', 'add', $remoteName, $remoteUrl],
             ['git', 'add', '-A'],
             ['git', 'branch', '-M', 'main'],
             ['git', 'commit', '-m', 'Deployment update', '--allow-empty'],
-            ['git', 'push', 'origin', 'main'],
+            ['git', 'push', $remoteName, 'main'],
         ];
 
         $output = [];
@@ -174,7 +175,7 @@ class SiteDeploymentManager
      */
     private function gitCommandCanFail(array $command): bool
     {
-        return $command === ['git', 'remote', 'remove', 'origin'];
+        return array_slice($command, 0, 3) === ['git', 'remote', 'remove'];
     }
 
     private function rememberGitPushResult(Site $site, bool $ok, string $message, string $output): void
