@@ -10,6 +10,12 @@ use Symfony\Component\Process\Process;
 
 class SiteDeploymentManager
 {
+    private bool $lastCommandSuccessful = true;
+
+    public function __construct(private readonly SiteGitLabRepositoryManager $gitLabRepositories)
+    {
+    }
+
     public function ensureAdminAccess(Site $site): Site
     {
         $settings = Arr::wrap($site->settings ?? []);
@@ -104,7 +110,7 @@ class SiteDeploymentManager
         $remoteUrl = trim((string) ($site->settings['deployment']['git_repository_url'] ?? ''));
 
         if ($repositoryPath === '') {
-            return ['ok' => false, 'message' => '尚未設定 Git 專案路徑。', 'output' => ''];
+            return ['ok' => false, 'message' => '尚未設定 Git 專案目錄。', 'output' => ''];
         }
 
         if (!is_dir($repositoryPath)) {
@@ -112,7 +118,15 @@ class SiteDeploymentManager
         }
 
         if ($remoteUrl === '') {
-            return ['ok' => false, 'message' => '尚未設定 GitLab Repository URL。', 'output' => ''];
+            $project = $this->gitLabRepositories->ensureProject($site);
+            if (!$project['ok'] || !$project['url']) {
+                $this->rememberGitPushResult($site, false, $project['message'], '');
+
+                return ['ok' => false, 'message' => $project['message'], 'output' => ''];
+            }
+
+            $site = $site->refresh();
+            $remoteUrl = $project['url'];
         }
 
         $remoteName = 'origin';
@@ -149,8 +163,6 @@ class SiteDeploymentManager
 
         return ['ok' => true, 'message' => $message, 'output' => implode("\n", $output)];
     }
-
-    private bool $lastCommandSuccessful = true;
 
     /**
      * @param list<string> $command

@@ -342,10 +342,10 @@
                             </div>
 
                             <div class="form-group row align-items-center cms-form-row">
-                                <label class="col-lg-3 control-label text-lg-end mb-0">GitLab Repo URL</label>
+                                <label class="col-lg-3 control-label text-lg-end mb-0">GitLab 專案網址</label>
                                 <div class="col-lg-7">
-                                    <input type="text" name="git_repository_url" class="form-control" value="{{ old('git_repository_url', $values['git_repository_url'] ?? '') }}" placeholder="可留空，由平台設定自動產生">
-                                    <div class="text-danger text-2 mt-2">若平台設定 CMS_GIT_REPOSITORY_BASE_URL，留空會自動使用「base/站台代號.git」。</div>
+                                    <input type="text" name="git_repository_url" class="form-control" value="{{ old('git_repository_url', $values['git_repository_url'] ?? '') }}" placeholder="Git Push 時自動建立並回寫" readonly>
+                                    <div class="text-danger text-2 mt-2">新增站點時不用填；內頁按 Git Push 會自動建立 GitLab 專案，並推送到 origin/main。</div>
                                 </div>
                             </div>
 

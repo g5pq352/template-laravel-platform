@@ -11,6 +11,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
@@ -680,6 +681,66 @@ PHP);
 
         $branch = trim((new Process(['git', 'branch', '--show-current'], $repoPath))->mustRun()->getOutput());
         $this->assertSame('main', $branch);
+    }
+
+    public function test_git_push_creates_gitlab_project_when_repository_url_is_empty(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'auto-gitlab-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $repoPath = storage_path('framework/testing/git-site-' . $slug);
+        $remotePath = storage_path('framework/testing/git-remote-' . $slug . '.git');
+
+        if (!is_dir($repoPath)) {
+            mkdir($repoPath, 0777, true);
+        }
+
+        file_put_contents($repoPath . DIRECTORY_SEPARATOR . 'README.md', '# ' . $slug . PHP_EOL);
+        (new Process(['git', 'init', '--bare', $remotePath]))->mustRun();
+
+        config([
+            'cms.platform.gitlab.url' => 'https://gitlab.example.test',
+            'cms.platform.gitlab.token' => 'secret-token',
+            'cms.platform.gitlab.namespace_id' => '100',
+            'cms.platform.gitlab.namespace_path' => 'goods-design',
+        ]);
+
+        Http::fake([
+            'gitlab.example.test/api/v4/projects' => Http::response([
+                'id' => 9001,
+                'path' => $slug,
+                'path_with_namespace' => 'goods-design/' . $slug,
+                'http_url_to_repo' => $remotePath,
+            ], 201),
+        ]);
+
+        $site = Site::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Auto GitLab Site',
+            'slug' => $slug,
+            'status' => 'active',
+            'default_locale' => 'zh-Hant-TW',
+            'timezone' => 'Asia/Taipei',
+            'currency_code' => 'TWD',
+            'settings' => [
+                'repository_path' => $repoPath,
+                'deployment' => [],
+            ],
+        ]);
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->post(route('admin.sites.git-push', $site))
+            ->assertRedirect();
+
+        $site->refresh();
+        $this->assertSame($remotePath, $site->settings['deployment']['git_repository_url'] ?? null);
+        $this->assertSame(9001, $site->settings['deployment']['gitlab_project_id'] ?? null);
+        $this->assertSame('goods-design/' . $slug, $site->settings['deployment']['gitlab_project_path'] ?? null);
+        $this->assertSame('success', $site->settings['deployment']['git_push_status'] ?? null);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'https://gitlab.example.test/api/v4/projects'
+            && $request['path'] === $slug
+            && $request['namespace_id'] === '100');
     }
 
     public function test_site_edit_page_shows_admin_access_and_git_push_button(): void

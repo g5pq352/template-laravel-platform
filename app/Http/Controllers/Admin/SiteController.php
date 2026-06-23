@@ -477,11 +477,7 @@ class SiteController extends Controller
 
     private function sitePayload(array $data, ?Site $site = null): array
     {
-        $origins = array_key_exists('api_allowed_origins', $data)
-            ? $this->originsFromTextarea((string) ($data['api_allowed_origins'] ?? ''))
-            : $this->originsFromSiteData($data);
         $settings = Arr::wrap($site?->settings ?? []);
-        $settings['api_allowed_origins'] = $origins;
         $settings['api_access_token'] = $this->nullableSetting($data['api_access_token'] ?? null)
             ?? ($settings['api_access_token'] ?? Str::random(48));
         $settings['cms_set_path'] = $this->nullableSetting($data['cms_set_path'] ?? null)
@@ -530,12 +526,22 @@ class SiteController extends Controller
             ->values()
             ->all();
 
+        $frontendUrl = $this->nullableSetting($data['frontend_url'] ?? null)
+            ?? ($settings['deployment']['frontend_url'] ?? $this->defaultTestFrontendUrl((string) $data['slug']));
+        $apiBaseUrl = $settings['deployment']['api_base_url'] ?? $this->defaultTestBackendUrl((string) $data['slug']);
+        $adminUrl = $this->nullableSetting($data['admin_url'] ?? null)
+            ?? ($settings['deployment']['admin_url'] ?? rtrim($apiBaseUrl, '/') . '/admin/login');
+        $settings['api_allowed_origins'] = array_key_exists('api_allowed_origins', $data)
+            ? $this->originsFromTextarea((string) ($data['api_allowed_origins'] ?? ''))
+            : $this->originsFromSiteData([...$data, 'frontend_url' => $frontendUrl]);
+
         $deployment = [
             'production_domain' => $this->nullableSetting($data['production_domain'] ?? null),
-            'frontend_url' => $this->nullableSetting($data['frontend_url'] ?? null),
-            'admin_url' => $this->nullableSetting($data['admin_url'] ?? null),
+            'frontend_url' => $frontendUrl,
+            'api_base_url' => $apiBaseUrl,
+            'admin_url' => $adminUrl,
             'git_repository_url' => $this->nullableSetting($data['git_repository_url'] ?? null)
-                ?? ($settings['deployment']['git_repository_url'] ?? $this->defaultGitRepositoryUrl((string) $data['slug'])),
+                ?? ($settings['deployment']['git_repository_url'] ?? null),
             'initialized_at' => $this->nullableSetting($data['initialized_at'] ?? null),
             'domain_bound_at' => $this->nullableSetting($data['domain_bound_at'] ?? null),
             'notes' => $this->nullableSetting($data['deployment_notes'] ?? null),
@@ -592,14 +598,21 @@ class SiteController extends Controller
         return str_replace(['/', '\\'], DIRECTORY_SEPARATOR, (string) config('cms.platform.frontend_template_path'));
     }
 
-    private function defaultGitRepositoryUrl(string $slug): ?string
+    private function defaultTestFrontendUrl(string $slug): string
     {
-        $baseUrl = trim((string) config('cms.platform.git_repository_base_url', ''));
-        if ($baseUrl === '') {
-            return null;
-        }
+        return $this->urlFromPattern((string) config('cms.platform.test_frontend_url_pattern'), $slug);
+    }
 
-        return rtrim($baseUrl, '/') . '/' . $slug . '.git';
+    private function defaultTestBackendUrl(string $slug): string
+    {
+        return $this->urlFromPattern((string) config('cms.platform.test_backend_url_pattern'), $slug);
+    }
+
+    private function urlFromPattern(string $pattern, string $slug): string
+    {
+        $url = str_replace('{slug}', $slug, trim($pattern));
+
+        return rtrim($url, '/');
     }
 
     private function originsFromTextarea(string $value): array
