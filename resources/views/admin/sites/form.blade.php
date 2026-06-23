@@ -351,6 +351,56 @@
 
                             @if($isEdit)
                                 <div class="form-group row align-items-start cms-form-row">
+                                    <label class="col-lg-3 control-label text-lg-end mb-0">初始化狀態</label>
+                                    <div class="col-lg-8">
+                                        @php
+                                            $deployment = $values['deployment'] ?? [];
+                                            $databaseCreatedAt = $deployment['database_created_at'] ?? null;
+                                            $databaseImportedAt = $deployment['database_template_imported_at'] ?? null;
+                                            $frontendGeneratedAt = $deployment['frontend_generated_at'] ?? null;
+                                            $frontendProjectPath = $deployment['frontend_project_path'] ?? null;
+                                            $gitlabProjectPath = $deployment['gitlab_project_path'] ?? null;
+                                            $gitlabProjectCreatedAt = $deployment['gitlab_project_created_at'] ?? null;
+                                        @endphp
+                                        <div class="p-3 border rounded bg-light">
+                                            <div class="mb-2">
+                                                <span class="font-weight-semibold">資料庫：</span>
+                                                @if($databaseCreatedAt)
+                                                    <span class="badge badge-success">已建立</span>
+                                                    <span class="text-muted text-2 ms-2">{{ $deployment['database_name'] ?? '' }} {{ $databaseCreatedAt }}</span>
+                                                @else
+                                                    <span class="text-muted">尚未建立</span>
+                                                @endif
+                                            </div>
+                                            @if($databaseImportedAt)
+                                                <div class="mb-2"><span class="font-weight-semibold">SQL 範本：</span>{{ $databaseImportedAt }}</div>
+                                            @endif
+                                            <div class="mb-2">
+                                                <span class="font-weight-semibold">前端專案：</span>
+                                                @if($frontendGeneratedAt)
+                                                    <span class="badge badge-success">已產生</span>
+                                                    <span class="text-muted text-2 ms-2">{{ $frontendGeneratedAt }}</span>
+                                                @else
+                                                    <span class="text-muted">尚未產生</span>
+                                                @endif
+                                            </div>
+                                            @if($frontendProjectPath)
+                                                <div class="mb-2 text-muted text-2">{{ $frontendProjectPath }}</div>
+                                            @endif
+                                            <div>
+                                                <span class="font-weight-semibold">GitLab 專案：</span>
+                                                @if($gitlabProjectPath)
+                                                    <span class="badge badge-success">已建立</span>
+                                                    <span class="text-muted text-2 ms-2">{{ $gitlabProjectPath }} {{ $gitlabProjectCreatedAt }}</span>
+                                                @else
+                                                    <span class="text-muted">尚未建立，按 Git Push 後自動建立</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="form-group row align-items-start cms-form-row">
                                     <label class="col-lg-3 control-label text-lg-end mb-0">Git Push 狀態</label>
                                     <div class="col-lg-8">
                                         @php

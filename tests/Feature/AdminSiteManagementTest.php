@@ -762,6 +762,12 @@ PHP);
                 'deployment' => [
                     'admin_url' => 'https://access.example.test/cms',
                     'git_repository_url' => 'https://gitlab.com/example/access-info-site.git',
+                    'database_name' => 'access_info_site',
+                    'database_created_at' => '2026-06-23 10:00:00',
+                    'frontend_project_path' => 'D:\\wamp64\\www\\access-info-site',
+                    'frontend_generated_at' => '2026-06-23 10:10:00',
+                    'gitlab_project_path' => 'goods-design/access-info-site',
+                    'gitlab_project_created_at' => '2026-06-23 10:20:00',
                 ],
             ],
         ]);
@@ -775,6 +781,10 @@ PHP);
             ->assertSee('Git Push')
             ->assertSee('後台登入資訊')
             ->assertSee('上線資訊')
+            ->assertSee('初始化狀態')
+            ->assertSee('access_info_site')
+            ->assertSee('D:\\wamp64\\www\\access-info-site')
+            ->assertSee('goods-design/access-info-site')
             ->assertDontSee('API 設定')
             ->assertSee('https://access.example.test/cms')
             ->assertSee('admin');
