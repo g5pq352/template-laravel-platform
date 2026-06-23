@@ -115,7 +115,7 @@ class SiteDeploymentManager
             return ['ok' => false, 'message' => '尚未設定 GitLab Repository URL。', 'output' => ''];
         }
 
-        $remoteName = $site->slug;
+        $remoteName = 'origin';
         $commands = [
             ['git', 'init'],
             ['git', 'config', 'user.email', 'auto@cms-automation.local'],

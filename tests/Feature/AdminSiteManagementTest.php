@@ -676,7 +676,10 @@ PHP);
         $this->assertSame('success', $site->settings['deployment']['git_push_status'] ?? null);
         $this->assertNotEmpty($site->settings['deployment']['git_pushed_at'] ?? null);
         $remoteList = trim((new Process(['git', 'remote'], $repoPath))->mustRun()->getOutput());
-        $this->assertSame($slug, $remoteList);
+        $this->assertSame('origin', $remoteList);
+
+        $branch = trim((new Process(['git', 'branch', '--show-current'], $repoPath))->mustRun()->getOutput());
+        $this->assertSame('main', $branch);
     }
 
     public function test_site_edit_page_shows_admin_access_and_git_push_button(): void

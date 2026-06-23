@@ -270,10 +270,10 @@
                             </div>
 
                             <div class="form-group row align-items-center cms-form-row">
-                                <label class="col-lg-3 control-label text-lg-end mb-0">Git Remote 名稱</label>
+                                <label class="col-lg-3 control-label text-lg-end mb-0">Git 主線分支</label>
                                 <div class="col-lg-8">
-                                    <input type="text" class="form-control" value="{{ old('slug', $values['slug'] ?? '') }}" placeholder="自動使用站台代號" readonly>
-                                    <div class="text-danger text-2 mt-2">Git remote 名稱會直接使用站台代號。</div>
+                                    <input type="text" class="form-control" value="main" readonly>
+                                    <div class="text-danger text-2 mt-2">Git remote 固定使用 origin；專案名稱與 Repository URL 才使用站台代號。</div>
                                 </div>
                             </div>
 
