@@ -32,6 +32,22 @@ class SiteFrontendProjectManager
         return ['created' => true, 'path' => $target, 'message' => null];
     }
 
+    /**
+     * @return array{updated: bool, path: string|null, message: string|null}
+     */
+    public function syncEnv(Site $site): array
+    {
+        $target = $this->existingTargetPath($site);
+        if (!$target) {
+            return ['updated' => false, 'path' => null, 'message' => '尚未建立前端專案目錄。'];
+        }
+
+        $this->writeEnv($site, $target);
+        $this->rememberEnvSync($site, $target);
+
+        return ['updated' => true, 'path' => $target, 'message' => null];
+    }
+
     private function templatePath(Site $site): ?string
     {
         $configured = trim((string) ($site->settings['frontend_template_path'] ?? ''));
@@ -90,12 +106,14 @@ class SiteFrontendProjectManager
         $token = trim((string) ($settings['api_access_token'] ?? ''));
         $apiBaseUrl = trim((string) ($settings['deployment']['api_base_url'] ?? config('app.url')));
         $language = $this->languageSlug($site);
+        $siteUrl = $this->siteUrl($site);
 
         $content = implode("\n", [
             'API_BASE_URL=' . rtrim($apiBaseUrl, '/'),
             'API_SITE=' . $site->slug,
             'API_LANGUAGE=' . $language,
             'API_ACCESS_TOKEN=' . $token,
+            'NEXT_PUBLIC_SITE_URL=' . $siteUrl,
             '',
         ]);
 
@@ -127,6 +145,50 @@ class SiteFrontendProjectManager
         $settings['deployment'] = $deployment;
 
         $site->forceFill(['settings' => $settings])->save();
+    }
+
+    private function rememberEnvSync(Site $site, string $target): void
+    {
+        $settings = Arr::wrap($site->settings ?? []);
+        $deployment = Arr::wrap($settings['deployment'] ?? []);
+        $deployment['frontend_project_path'] = $target;
+        $deployment['frontend_env_synced_at'] = now()->format('Y-m-d H:i:s');
+        $settings['deployment'] = $deployment;
+
+        $site->forceFill(['settings' => $settings])->save();
+    }
+
+    private function existingTargetPath(Site $site): ?string
+    {
+        $configured = trim((string) ($site->settings['deployment']['frontend_project_path'] ?? ''))
+            ?: trim((string) ($site->settings['repository_path'] ?? ''));
+
+        if ($configured === '') {
+            return null;
+        }
+
+        $target = $this->normalizePath($configured);
+
+        return is_dir($target) ? $target : null;
+    }
+
+    private function siteUrl(Site $site): string
+    {
+        $configured = trim((string) ($site->settings['deployment']['frontend_url'] ?? ''));
+        if ($configured !== '') {
+            return rtrim($configured, '/');
+        }
+
+        $domain = trim((string) ($site->settings['deployment']['production_domain'] ?? ''));
+        if ($domain === '') {
+            return '';
+        }
+
+        if (!preg_match('#^https?://#i', $domain)) {
+            $domain = 'https://' . $domain;
+        }
+
+        return rtrim($domain, '/');
     }
 
     private function normalizePath(string $path): string

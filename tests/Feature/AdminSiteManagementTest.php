@@ -223,9 +223,70 @@ class AdminSiteManagementTest extends TestCase
         $this->assertStringContainsString('API_SITE=' . $slug, $env);
         $this->assertStringContainsString('API_LANGUAGE=tw', $env);
         $this->assertStringContainsString('API_ACCESS_TOKEN=site-front-token', $env);
+        $this->assertStringContainsString('NEXT_PUBLIC_SITE_URL=', $env);
         $this->assertSame($targetPath, $site->settings['repository_path']);
         $this->assertSame($targetPath, $site->settings['deployment']['frontend_project_path']);
         $this->assertNotEmpty($site->settings['deployment']['frontend_generated_at']);
+    }
+
+    public function test_updating_site_only_syncs_frontend_env_file(): void
+    {
+        [$admin, $tenant] = $this->adminAndTenant();
+        $slug = 'frontend-env-sync-site-' . strtolower(substr(md5((string) microtime(true)), 0, 8));
+        $templatePath = storage_path('framework/testing/next-template-' . $slug);
+        $targetPath = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, storage_path('framework/testing/' . $slug));
+
+        File::deleteDirectory($templatePath);
+        File::deleteDirectory($targetPath);
+        File::ensureDirectoryExists($templatePath . DIRECTORY_SEPARATOR . 'app');
+        File::put($templatePath . DIRECTORY_SEPARATOR . 'package.json', json_encode(['name' => 'template-next-platform'], JSON_PRETTY_PRINT));
+        File::put($templatePath . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'page.js', 'export default function Page() { return "template"; }');
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id])
+            ->post(route('admin.sites.store'), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Frontend Env Sync Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'api_access_token' => 'old-front-token',
+                'frontend_template_path' => $templatePath,
+                'enabled_modules' => ['news'],
+            ]);
+
+        $site = Site::query()->where('slug', $slug)->firstOrFail();
+        $mainSite = Site::query()->where('slug', 'main-site')->firstOrFail();
+        File::put($targetPath . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'page.js', 'custom frontend code');
+
+        $this
+            ->withSession(['admin_user_id' => $admin->id, 'current_site_id' => $mainSite->id])
+            ->put(route('admin.sites.update', $site), [
+                'tenant_id' => $tenant->id,
+                'name' => 'Frontend Env Sync Site',
+                'slug' => $slug,
+                'status' => 'active',
+                'default_locale' => 'zh-Hant-TW',
+                'timezone' => 'Asia/Taipei',
+                'currency_code' => 'TWD',
+                'api_access_token' => 'new-front-token',
+                'frontend_template_path' => $templatePath,
+                'repository_path' => $targetPath,
+                'frontend_url' => 'https://frontend-sync.example.test',
+                'enabled_modules' => ['news'],
+            ])
+            ->assertRedirect(route('admin.sites.edit', $site));
+
+        $env = File::get($targetPath . DIRECTORY_SEPARATOR . '.env.local');
+        $site->refresh();
+
+        $this->assertSame('custom frontend code', File::get($targetPath . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'page.js'));
+        $this->assertStringContainsString('API_SITE=' . $slug, $env);
+        $this->assertStringContainsString('API_ACCESS_TOKEN=new-front-token', $env);
+        $this->assertStringContainsString('NEXT_PUBLIC_SITE_URL=https://frontend-sync.example.test', $env);
+        $this->assertNotEmpty($site->settings['deployment']['frontend_env_synced_at']);
     }
 
     public function test_site_database_defaults_use_site_slug(): void

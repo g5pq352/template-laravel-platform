@@ -182,7 +182,14 @@ class SiteController extends Controller
         ]);
     }
 
-    public function update(AdminContext $context, Request $request, Site $site, SiteDeploymentManager $deployment, SiteModuleManager $modules): RedirectResponse
+    public function update(
+        AdminContext $context,
+        Request $request,
+        Site $site,
+        SiteDeploymentManager $deployment,
+        SiteFrontendProjectManager $frontendProjects,
+        SiteModuleManager $modules
+    ): RedirectResponse
     {
         $this->authorizeMainSite($context);
 
@@ -194,6 +201,7 @@ class SiteController extends Controller
         });
         $site = $deployment->syncAdminAccess($site->refresh(), $data);
         $modules->syncDatabase($site);
+        $frontendProjects->syncEnv($site);
 
         if ($site->status !== 'active' && (int) $request->session()->get('current_site_id') === (int) $site->id) {
             $request->session()->forget('current_site_id');
