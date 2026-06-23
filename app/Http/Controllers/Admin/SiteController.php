@@ -7,8 +7,9 @@ use App\Models\Site;
 use App\Models\SiteDomain;
 use App\Models\Tenant;
 use App\Support\AdminContext;
-use App\Support\SiteDeploymentManager;
 use App\Support\SiteBootstrapper;
+use App\Support\SiteDatabaseProvisioner;
+use App\Support\SiteDeploymentManager;
 use App\Support\SiteFrontendProjectManager;
 use App\Support\SiteModuleManager;
 use Illuminate\Http\JsonResponse;
@@ -103,6 +104,7 @@ class SiteController extends Controller
         AdminContext $context,
         Request $request,
         SiteBootstrapper $bootstrapper,
+        SiteDatabaseProvisioner $databases,
         SiteDeploymentManager $deployment,
         SiteFrontendProjectManager $frontendProjects,
         SiteModuleManager $modules
@@ -121,6 +123,7 @@ class SiteController extends Controller
             return $site;
         });
         $modules->provisionSetFiles($site);
+        $databases->provision($site);
         $site = $deployment->ensureAdminAccess($site);
         $frontendProjects->provision($site);
 

@@ -6,6 +6,8 @@ return [
     'frontend_template_path' => env('CMS_FRONTEND_TEMPLATE_PATH', dirname(base_path()) . DIRECTORY_SEPARATOR . 'template-next-platform'),
     'test_frontend_url_pattern' => env('CMS_TEST_FRONTEND_URL_PATTERN', 'http://{slug}.test'),
     'test_backend_url_pattern' => env('CMS_TEST_BACKEND_URL_PATTERN', env('APP_URL', 'http://localhost')),
+    'site_database_auto_provision' => env('CMS_SITE_DATABASE_AUTO_PROVISION', true),
+    'site_database_template_path' => env('CMS_SITE_DATABASE_TEMPLATE_PATH'),
     'gitlab' => [
         'url' => env('CMS_GITLAB_URL', 'https://gitlab.com'),
         'token' => env('CMS_GITLAB_TOKEN'),
